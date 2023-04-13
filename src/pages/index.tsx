@@ -43,20 +43,26 @@ const IndexPage = () => {
     const pendingCandidates: RTCIceCandidate[] = [];
 
     newSocket.onmessage = async (event) => {
+      if (!event?.data) {
+        return;
+      }
       const data = JSON.parse(event.data);
-      console.log("Message received:", data);
+      // console.log("こんなデータを受け取ったよ！", data);
       if (data.type === "offer") {
         console.log("オファーを受け取ったよ！:", data);
         // ここでSDPデータを取得
         const sdpData = data.sdp;
         await peerConnection.setRemoteDescription(
           new RTCSessionDescription({
-            type: sdpData.type,
-            sdp: sdpData.sdp,
+            type: "offer",
+            sdp: sdpData,
           })
         );
         const answer = await peerConnection.createAnswer();
-        await peerConnection.setLocalDescription(answer);
+        await peerConnection.setLocalDescription({
+          type: "answer",
+          sdp: answer.sdp,
+        });
 
         newSocket.send(
           JSON.stringify({
@@ -96,7 +102,7 @@ const IndexPage = () => {
         peerConnection.iceConnectionState === "connected" ||
         peerConnection.iceConnectionState === "completed"
       ) {
-        console.log("ICE connection established");
+        console.log("ICE connection 成功！！！！！！！！！！！！！");
       }
     };
     peerConnection.onicecandidate = (event) => {
@@ -220,10 +226,13 @@ const IndexPage = () => {
           console.log("WebSocket opened");
 
           const offer = await peerConnectionRef.current?.createOffer();
-          console.log("offer", offer);
+          console.log("ここのofferはこれ！！！:", offer);
 
           if (offer) {
-            await peerConnectionRef.current?.setLocalDescription(offer);
+            await peerConnectionRef.current?.setLocalDescription({
+              type: "offer",
+              sdp: offer.sdp,
+            });
 
             newSocketRef.current?.send(
               JSON.stringify({
@@ -231,6 +240,8 @@ const IndexPage = () => {
                 roomId,
               })
             );
+            console.log("offer.sdp:", offer.sdp);
+
             newSocketRef.current?.send(
               JSON.stringify({
                 type: "offer",
