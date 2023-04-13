@@ -30,18 +30,18 @@ const IndexPage = () => {
     newSocketRef.current = newSocket;
 
     peerConnectionRef.current = peerConnection;
-    peerConnection.ontrack = (event) => {
-      console.log("Remote stream:", event.streams[0]);
-      if (remoteAudioRef.current) {
-        remoteAudioRef.current.srcObject = event.streams[0];
-      }
-    };
 
     newSocket.onclose = (event) => {
       console.log("WebSocket closed:", event.code, event.reason);
     };
     const pendingCandidates: RTCIceCandidate[] = [];
+    const localStream = await navigator.mediaDevices.getUserMedia({
+      audio: true,
+    });
 
+    localStream.getTracks().forEach((track) => {
+      peerConnection.addTrack(track, localStream);
+    });
     newSocket.onmessage = async (event) => {
       if (!event?.data) {
         return;
@@ -49,15 +49,17 @@ const IndexPage = () => {
       const data = JSON.parse(event.data);
       // console.log("こんなデータを受け取ったよ！", data);
       if (data.type === "offer") {
-        console.log("オファーを受け取ったよ！:", data);
         // ここでSDPデータを取得
         const sdpData = data.sdp;
+        console.log("受け取ったoffer:", sdpData);
         await peerConnection.setRemoteDescription(
-          new RTCSessionDescription({
-            type: "offer",
-            sdp: sdpData,
-          })
+          new RTCSessionDescription({ type: "offer", sdp: sdpData })
         );
+        // 新しいトラックを追加
+        const audioTransceiver = peerConnection.addTransceiver("audio", {
+          direction: "sendrecv",
+        });
+        audioTransceiver.sender.replaceTrack(localStream.getTracks()[0]);
         const answer = await peerConnection.createAnswer();
         await peerConnection.setLocalDescription({
           type: "answer",
@@ -87,9 +89,15 @@ const IndexPage = () => {
           peerConnection.remoteDescription.type
         ) {
           await peerConnection.addIceCandidate(candidate);
+          console.log("Added ICE candidate:", candidate);
         } else {
           pendingCandidates.push(candidate);
         }
+      } else if (data.type === "answer") {
+        console.log("受け取ったanswer:", data.answer);
+        await peerConnection.setRemoteDescription(
+          new RTCSessionDescription({ type: "answer", sdp: data.answer.sdp })
+        );
       }
     };
 
@@ -164,6 +172,12 @@ const IndexPage = () => {
         pendingCandidates.length = 0;
       }
     });
+    peerConnection.addEventListener("track", (event) => {
+      console.log("Remote stream:", event.streams[0]);
+      if (remoteAudioRef.current) {
+        remoteAudioRef.current.srcObject = event.streams[0];
+      }
+    });
     console.log(
       "ICE gathering state:",
       peerConnectionRef.current?.iceGatheringState
@@ -204,18 +218,6 @@ const IndexPage = () => {
 
     try {
       await createWebSocketAndPeerConnection();
-
-      const localStream = await navigator.mediaDevices.getUserMedia({
-        audio: true,
-      });
-      console.log("getUserMedia successful");
-
-      if (localAudioRef.current) {
-        localAudioRef.current.srcObject = localStream;
-      }
-      localStream.getTracks().forEach((track) => {
-        peerConnectionRef.current?.addTrack(track, localStream);
-      });
 
       console.log("Joining room:", roomId);
 
@@ -274,6 +276,17 @@ const IndexPage = () => {
     };
   }, []);
 
+  useEffect(() => {
+    if (peerConnectionRef.current) {
+      peerConnectionRef.current.ontrack = (event) => {
+        console.log("Remote stream:", event.streams[0]);
+        if (remoteAudioRef.current) {
+          remoteAudioRef.current.srcObject = event.streams[0];
+        }
+      };
+    }
+  }, []);
+
   return (
     <div className="absolute top-0 left-0 h-full w-full bg-orange-200">
       <h1>WebRTC Demo</h1>
@@ -292,8 +305,8 @@ const IndexPage = () => {
         </button>
       </div>
       <div>
-        <audio ref={localAudioRef} autoPlay playsInline muted />
-        <audio ref={remoteAudioRef} autoPlay />
+        <audio ref={localAudioRef} autoPlay playsInline controls muted />
+        <audio ref={remoteAudioRef} autoPlay playsInline controls />
       </div>
       <div>{errorMessage}</div>
     </div>
