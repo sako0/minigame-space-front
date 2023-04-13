@@ -46,6 +46,7 @@ const IndexPage = () => {
       const data = JSON.parse(event.data);
       console.log("Message received:", data);
       if (data.type === "offer") {
+        console.log("オファーを受け取ったよ！:", data);
         // ここでSDPデータを取得
         const sdpData = data.sdp;
         await peerConnection.setRemoteDescription(
@@ -61,7 +62,7 @@ const IndexPage = () => {
           JSON.stringify({
             type: "answer",
             answer,
-            sdp: answer,
+            sdp: answer.sdp,
             roomId,
           })
         );
@@ -111,6 +112,73 @@ const IndexPage = () => {
         );
       }
     };
+
+    peerConnection.addEventListener("icecandidate", (event) => {
+      if (event.candidate) {
+        console.log("Sending ICE candidate:", event.candidate);
+        newSocketRef.current?.send(
+          JSON.stringify({
+            type: "candidate",
+            roomId,
+            candidate: event.candidate,
+          })
+        );
+      }
+    });
+
+    peerConnection.addEventListener("icegatheringstatechange", () => {
+      console.log(
+        "ICE gathering state changed:",
+        peerConnection.iceGatheringState
+      );
+    });
+
+    peerConnection.addEventListener("iceconnectionstatechange", () => {
+      console.log(
+        "ICE connection state changed:",
+        peerConnection.iceConnectionState
+      );
+    });
+
+    peerConnection.addEventListener("connectionstatechange", () => {
+      console.log(
+        "Peer connection state changed:",
+        peerConnection.connectionState
+      );
+    });
+    peerConnection.addEventListener("iceconnectionstatechange", async () => {
+      if (
+        peerConnection.iceConnectionState === "connected" ||
+        peerConnection.iceConnectionState === "completed"
+      ) {
+        // Add any pending ICE candidates
+        for (const candidate of pendingCandidates) {
+          await peerConnection.addIceCandidate(candidate);
+        }
+        pendingCandidates.length = 0;
+      }
+    });
+    console.log(
+      "ICE gathering state:",
+      peerConnectionRef.current?.iceGatheringState
+    );
+    console.log(
+      "ICE connection state:",
+      peerConnectionRef.current?.iceConnectionState
+    );
+    console.log(
+      "Peer connection state:",
+      peerConnectionRef.current?.connectionState
+    );
+    peerConnectionRef.current?.addEventListener(
+      "icegatheringstatechange",
+      () => {
+        console.log(
+          "ICE gathering state changed:",
+          peerConnectionRef.current?.iceGatheringState
+        );
+      }
+    );
   }, [roomId]);
 
   // ルームに参加する
@@ -130,69 +198,6 @@ const IndexPage = () => {
 
     try {
       await createWebSocketAndPeerConnection();
-      peerConnectionRef.current?.addEventListener("icecandidate", (event) => {
-        if (event.candidate) {
-          console.log("Sending ICE candidate:", event.candidate);
-          newSocketRef.current?.send(
-            JSON.stringify({
-              type: "candidate",
-              roomId,
-              candidate: event.candidate,
-            })
-          );
-        }
-      });
-
-      peerConnectionRef.current?.addEventListener(
-        "icegatheringstatechange",
-        () => {
-          console.log(
-            "ICE gathering state changed:",
-            peerConnectionRef.current?.iceGatheringState
-          );
-        }
-      );
-
-      peerConnectionRef.current?.addEventListener(
-        "iceconnectionstatechange",
-        () => {
-          console.log(
-            "ICE connection state changed:",
-            peerConnectionRef.current?.iceConnectionState
-          );
-        }
-      );
-
-      peerConnectionRef.current?.addEventListener(
-        "connectionstatechange",
-        () => {
-          console.log(
-            "Peer connection state changed:",
-            peerConnectionRef.current?.connectionState
-          );
-        }
-      );
-      console.log(
-        "ICE gathering state:",
-        peerConnectionRef.current?.iceGatheringState
-      );
-      console.log(
-        "ICE connection state:",
-        peerConnectionRef.current?.iceConnectionState
-      );
-      console.log(
-        "Peer connection state:",
-        peerConnectionRef.current?.connectionState
-      );
-      peerConnectionRef.current?.addEventListener(
-        "icegatheringstatechange",
-        () => {
-          console.log(
-            "ICE gathering state changed:",
-            peerConnectionRef.current?.iceGatheringState
-          );
-        }
-      );
 
       const localStream = await navigator.mediaDevices.getUserMedia({
         audio: true,
@@ -230,7 +235,7 @@ const IndexPage = () => {
               JSON.stringify({
                 type: "offer",
                 roomId,
-                sdp: offer,
+                sdp: offer.sdp,
               })
             );
           }
