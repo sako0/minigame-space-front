@@ -20,7 +20,6 @@ const IndexPage = () => {
         { urls: "stun:stun3.l.google.com:19302" },
         { urls: "stun:stun4.l.google.com:19302" },
       ],
-      iceTransportPolicy: "relay",
     });
 
     const newSocket = new WebSocket(
@@ -276,7 +275,7 @@ const IndexPage = () => {
       </div>
       <div>
         <audio ref={localAudioRef} autoPlay playsInline muted />
-        <audio ref={remoteAudioRef} autoPlay playsInline />
+        <audio ref={remoteAudioRef} autoPlay />
       </div>
       <div>{errorMessage}</div>
     </div>
