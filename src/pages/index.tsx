@@ -23,7 +23,9 @@ const IndexPage = () => {
     });
 
     const newSocket = new WebSocket(
-      `ws://localhost:5500/socket.io/?roomId=${roomId}`
+      process.env.NODE_ENV === "production"
+        ? `ws://160.251.141.164:5500/socket.io/?roomId=${roomId}`
+        : `ws://localhost:5500/socket.io/?roomId=${roomId}`
     );
     newSocketRef.current = newSocket;
 
