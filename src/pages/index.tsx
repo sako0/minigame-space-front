@@ -125,9 +125,11 @@ const IndexPage = () => {
           const sdpData = data.sdp;
           console.log("Receive offer:", sdpData);
 
-          await peerConnection.setRemoteDescription(
-            new RTCSessionDescription({ type: "offer", sdp: sdpData })
-          );
+          await peerConnection
+            .setRemoteDescription(
+              new RTCSessionDescription({ type: "offer", sdp: sdpData })
+            )
+            .catch((e) => console.log(e));
           // 新しいトラックを追加
           const audioTransceiver = peerConnection.addTransceiver("audio", {
             direction: "sendrecv",
@@ -135,10 +137,12 @@ const IndexPage = () => {
           audioTransceiver.sender.replaceTrack(localStream.getTracks()[0]);
           // ここでanswerを作成
           const answer = await peerConnection.createAnswer();
-          await peerConnection.setLocalDescription({
-            type: "answer",
-            sdp: answer.sdp,
-          });
+          await peerConnection
+            .setLocalDescription({
+              type: "answer",
+              sdp: answer.sdp,
+            })
+            .catch((e) => console.log(e));
           // ここでanswerを送信
           newSocket.send(
             JSON.stringify({
@@ -151,7 +155,9 @@ const IndexPage = () => {
 
           // ここでICE candidateが来るまで待つ
           for (const candidate of pendingCandidatesRef.current) {
-            await peerConnection.addIceCandidate(candidate);
+            await peerConnection
+              .addIceCandidate(candidate)
+              .catch((e) => console.log(e));
           }
           pendingCandidatesRef.current.length = 0;
           // ここでICE candidateが来た時の処理
@@ -163,7 +169,9 @@ const IndexPage = () => {
             peerConnection.remoteDescription &&
             peerConnection.remoteDescription.type
           ) {
-            await peerConnection.addIceCandidate(candidate);
+            await peerConnection
+              .addIceCandidate(candidate)
+              .catch((e) => console.log(e));
             console.log("Added ICE candidate:", candidate);
             // リモートのSDPがセットされていない場合はICE candidateを保留
           } else {
@@ -175,12 +183,14 @@ const IndexPage = () => {
           // ここで、RTCPeerConnectionの状態をチェック
           if (peerConnection.signalingState === "have-local-offer") {
             // リモートのAnswerを設定
-            await peerConnection.setRemoteDescription(
-              new RTCSessionDescription({
-                type: "answer",
-                sdp: data.answer.sdp,
-              })
-            );
+            await peerConnection
+              .setRemoteDescription(
+                new RTCSessionDescription({
+                  type: "answer",
+                  sdp: data.answer.sdp,
+                })
+              )
+              .catch((e) => console.log(e));
           } else {
             console.log("Signaling state is not 'have-local-offer'");
           }
@@ -219,11 +229,7 @@ const IndexPage = () => {
   }, [roomId]);
   // Offerを作成してルームに参加する
   const createOfferAndJoinRoom = useCallback(async () => {
-    try {
-      await createWebSocketAndPeerConnection();
-    } catch (error) {
-      console.error("Error createWebSocketAndPeerConnection:", error);
-    }
+    await createWebSocketAndPeerConnection().catch((e) => console.log(e));
 
     addEventListeners();
     const { current: PConnection } = peerConnectionRef;
@@ -320,12 +326,7 @@ const IndexPage = () => {
         />
         <button
           onClick={async () => {
-            try {
-              await joinRoom();
-            } catch (error) {
-              console.log("Error joinRoom:", error);
-            }
-
+            await joinRoom().catch((e) => console.log(e));
             handleAudioPlayback();
           }}
           className="bg-lime-300"
