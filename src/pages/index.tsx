@@ -273,6 +273,7 @@ const IndexPage = () => {
     };
   }, []);
 
+  // リモートのストリームを取得する*重要*
   useEffect(() => {
     if (peerConnectionRef.current) {
       peerConnectionRef.current.ontrack = (event) => {
@@ -313,7 +314,7 @@ const IndexPage = () => {
       </div>
       <div>
         <audio ref={localAudioRef} autoPlay playsInline controls muted />
-        <audio ref={remoteAudioRef} autoPlay playsInline controls />
+        <audio ref={remoteAudioRef} autoPlay playsInline />
       </div>
     </div>
   );
