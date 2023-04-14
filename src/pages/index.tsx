@@ -8,14 +8,18 @@ const IndexPage = () => {
   const peerConnectionRef = useRef<RTCPeerConnection>();
   const pendingCandidatesRef = useRef<RTCIceCandidate[]>([]);
 
-  // イベントリスナーを追加
+  // 再生する
+  const handleAudioPlayback = () => {
+    if (remoteAudioRef.current) {
+      remoteAudioRef.current.play();
+    }
+  };
+  // イベントリスナーを追加する
   const addEventListeners = useCallback(() => {
     const { current: PConnection } = peerConnectionRef;
     if (!PConnection) return;
 
     PConnection.addEventListener("track", (event) => {
-      console.log("Remote stream:", event.streams[0]);
-
       if (remoteAudioRef.current) {
         remoteAudioRef.current.srcObject = event.streams[0];
       }
@@ -23,7 +27,6 @@ const IndexPage = () => {
 
     PConnection.addEventListener("icecandidate", (event) => {
       if (event.candidate) {
-        console.log("Sending ICE candidate:", event.candidate);
         newSocketRef.current?.send(
           JSON.stringify({
             type: "candidate",
@@ -33,51 +36,21 @@ const IndexPage = () => {
         );
       }
     });
-    PConnection.addEventListener("icegatheringstatechange", () => {
-      console.log(
-        "ICE gathering state changed:",
-        PConnection.iceGatheringState
-      );
-    });
-    PConnection.addEventListener("iceconnectionstatechange", () => {
-      console.log(
-        "ICE connection state changed:",
-        PConnection.iceConnectionState
-      );
-    });
-    PConnection.addEventListener("connectionstatechange", () => {
-      console.log(
-        "Peer connection state changed:",
-        PConnection.connectionState
-      );
-    });
+
     PConnection.addEventListener("iceconnectionstatechange", async () => {
       if (
         PConnection.iceConnectionState === "connected" ||
         PConnection.iceConnectionState === "completed"
       ) {
-        // Add any pending ICE candidates
         for (const candidate of pendingCandidatesRef.current) {
           await PConnection.addIceCandidate(candidate);
         }
         pendingCandidatesRef.current.length = 0;
       }
     });
-    console.log(
-      "ICE gathering state:",
-      peerConnectionRef.current?.iceGatheringState
-    );
-    console.log("ICE connection state:", PConnection.iceConnectionState);
-    console.log("Peer connection state:", PConnection.connectionState);
-    PConnection.addEventListener("icegatheringstatechange", () => {
-      console.log(
-        "ICE gathering state changed:",
-        PConnection.iceGatheringState
-      );
-    });
   }, [roomId]);
 
-  // ここでWebSocketとPeerConnectionを作成
+  // WebSocketとPeerConnectionを作成する
   const createWebSocketAndPeerConnection = useCallback(async () => {
     if (!roomId) return;
     const newSocket = new WebSocket(
@@ -96,50 +69,33 @@ const IndexPage = () => {
     });
     peerConnectionRef.current = peerConnection;
 
-    // ここでローカルストリームを取得
     const localStream = await navigator.mediaDevices.getUserMedia({
       audio: true,
     });
-    // ここでローカルストリームを再生
     localStream.getTracks().forEach((track) => {
       peerConnection.addTrack(track, localStream);
     });
 
-    newSocket.onopen = () => {
-      console.log("WebSocket opened");
-    };
-
-    // ここでWebSocketが閉じた時の処理を設定
-    newSocket.onclose = (event) => {
-      console.log("WebSocket closed:", event.code, event.reason);
-    };
-
-    // ここでWebSocketのMsgが来た時の処理を設定
     newSocket.onmessage = async (event) => {
       if (!event?.data) {
         return;
       }
       const data = JSON.parse(event.data);
-      // offerが来た時の処理
       if (data.type === "offer") {
         const sdpData = data.sdp;
-        console.log("Receive offer:", sdpData);
 
         await peerConnection.setRemoteDescription(
           new RTCSessionDescription({ type: "offer", sdp: sdpData })
         );
-        // 新しいトラックを追加
         const audioTransceiver = peerConnection.addTransceiver("audio", {
           direction: "sendrecv",
         });
         audioTransceiver.sender.replaceTrack(localStream.getTracks()[0]);
-        // ここでanswerを作成
         const answer = await peerConnection.createAnswer();
         await peerConnection.setLocalDescription({
           type: "answer",
           sdp: answer.sdp,
         });
-        // ここでanswerを送信
         newSocket.send(
           JSON.stringify({
             type: "answer",
@@ -148,147 +104,86 @@ const IndexPage = () => {
             roomId,
           })
         );
-
         // ここでICE candidateが来るまで待つ
         for (const candidate of pendingCandidatesRef.current) {
           await peerConnection.addIceCandidate(candidate);
         }
         pendingCandidatesRef.current.length = 0;
-        // ここでICE candidateが来た時の処理
-      } else if (data.type === "candidate") {
-        console.log("Receiving ICE candidate:", data.candidate);
-        const candidate = new RTCIceCandidate(data.candidate);
-        // リモートのSDPがセットされている場合はICE candidateを追加
-        if (
-          peerConnection.remoteDescription &&
-          peerConnection.remoteDescription.type
-        ) {
-          await peerConnection.addIceCandidate(candidate);
-          console.log("Added ICE candidate:", candidate);
-          // リモートのSDPがセットされていない場合はICE candidateを保留
-        } else {
-          pendingCandidatesRef.current.push(candidate);
-        }
-        // answerが来た時の処理
       } else if (data.type === "answer") {
-        console.log("Receive answer:", data.answer);
-        // ここで、RTCPeerConnectionの状態をチェック
+        const sdpData = data.sdp;
         if (peerConnection.signalingState === "have-local-offer") {
-          // リモートのAnswerを設定
           await peerConnection.setRemoteDescription(
             new RTCSessionDescription({
               type: "answer",
-              sdp: data.answer.sdp,
+              sdp: sdpData,
             })
           );
+        }
+      } else if (data.type === "candidate") {
+        const candidate = new RTCIceCandidate(data.candidate);
+        if (
+          peerConnection.iceConnectionState === "connected" ||
+          peerConnection.iceConnectionState === "completed"
+        ) {
+          await peerConnection.addIceCandidate(candidate);
         } else {
-          console.log("Signaling state is not 'have-local-offer'");
+          pendingCandidatesRef.current.push(candidate);
         }
       }
     };
-
-    // ここでICE connectionの状態が変わった時の処理を設定
-    peerConnection.oniceconnectionstatechange = () => {
-      console.log(
-        "ICE connection state changed:",
-        peerConnection.iceConnectionState
-      );
-      if (
-        peerConnection.iceConnectionState === "connected" ||
-        peerConnection.iceConnectionState === "completed"
-      ) {
-        console.log("ICE connection Established!");
-      }
-    };
-    // ここでICE candidateが作成された時の処理を設定
-    peerConnection.onicecandidate = (event) => {
-      if (event.candidate) {
-        console.log("Sending ICE candidate:", event.candidate);
-        newSocket.send(
-          JSON.stringify({
-            type: "candidate",
-            roomId,
-            candidate: event.candidate,
-          })
-        );
-      }
-    };
-  }, [roomId]);
-  // Offerを作成してルームに参加する
-  const createOfferAndJoinRoom = useCallback(async () => {
-    await createWebSocketAndPeerConnection();
     addEventListeners();
+  }, [roomId, addEventListeners]);
+
+  // コールをかける
+  const offerCall = useCallback(async () => {
     const { current: PConnection } = peerConnectionRef;
     if (!PConnection) return;
-
     const offer = await PConnection.createOffer();
-    if (offer) {
-      await PConnection.setLocalDescription({
-        type: "offer",
-        sdp: offer.sdp,
-      });
-
-      newSocketRef.current?.send(
-        JSON.stringify({
-          type: "join",
-          roomId,
-        })
-      );
-
-      newSocketRef.current?.send(
-        JSON.stringify({
-          type: "offer",
-          roomId,
-          sdp: offer.sdp,
-        })
-      );
-    }
-  }, [addEventListeners, createWebSocketAndPeerConnection, roomId]);
-
-  // ルームに参加する
+    await PConnection.setLocalDescription(offer);
+    newSocketRef.current?.send(
+      JSON.stringify({ type: "offer", roomId, sdp: offer.sdp })
+    );
+  }, [roomId]);
+  // 入室する
   const joinRoom = useCallback(async () => {
     if (!roomId) return;
-    console.log("Joining room:", roomId);
-    await createOfferAndJoinRoom();
-  }, [createOfferAndJoinRoom, roomId]);
+    await createWebSocketAndPeerConnection();
+    if (localAudioRef.current) {
+      localAudioRef.current.srcObject =
+        await navigator.mediaDevices.getUserMedia({
+          audio: true,
+        });
+    }
+    offerCall();
+  }, [roomId, createWebSocketAndPeerConnection, offerCall]);
 
-  // ルームから退出する
-  const leaveRoom = () => {
+  // 退室する
+  const leaveRoom = useCallback(() => {
     if (newSocketRef.current) {
       newSocketRef.current.close();
     }
     if (peerConnectionRef.current) {
       peerConnectionRef.current.close();
     }
-    if (pendingCandidatesRef.current) {
-      pendingCandidatesRef.current.length = 0;
+    if (localAudioRef.current) {
+      localAudioRef.current.srcObject = null;
     }
-  };
-
-  // 再生する
-  const handleAudioPlayback = () => {
     if (remoteAudioRef.current) {
-      remoteAudioRef.current.play();
+      remoteAudioRef.current.srcObject = null;
     }
-  };
+  }, []);
 
-  // コンポーネントがアンマウントされた時に呼ばれる
+  // コンポーネントがアンマウントされた時LeaveRoomを実行する
   useEffect(() => {
     return () => {
-      if (newSocketRef.current) {
-        newSocketRef.current.close();
-      }
-      if (peerConnectionRef.current) {
-        peerConnectionRef.current.close();
-      }
+      leaveRoom();
     };
-  }, []);
+  }, [leaveRoom]);
 
   // リモートのストリームを取得する*重要*
   useEffect(() => {
     if (peerConnectionRef.current) {
       peerConnectionRef.current.ontrack = (event) => {
-        console.log("Remote stream:", event.streams[0]);
         if (remoteAudioRef.current) {
           remoteAudioRef.current.srcObject = event.streams[0];
         }
@@ -297,35 +192,35 @@ const IndexPage = () => {
   }, []);
 
   return (
-    <div className="absolute top-0 left-0 h-full w-full bg-orange-200">
-      <h1>WebRTC Demo</h1>
+    <div className="text-center">
       <div>
         <input
+          className="bg-gray-200 rounded-md shadow-lg m-2 p-2 text-black"
+          placeholder="1"
           type="text"
           value={roomId}
-          className="text-black"
-          onChange={(event) => setRoomId(event.target.value)}
+          onChange={(e) => setRoomId(e.target.value)}
         />
         <button
+          className="bg-lime-500 rounded-md shadow-lg m-2 p-2"
           onClick={async () => {
             await joinRoom();
             handleAudioPlayback();
           }}
-          className="bg-lime-300"
         >
           Join Room
         </button>
         <button
+          className="bg-red-500 rounded-md shadow-lg m-2 p-2"
           onClick={() => {
             leaveRoom();
           }}
-          className="bg-red-400"
         >
           Leave Room
         </button>
       </div>
-      <div>
-        {/* <audio ref={localAudioRef} autoPlay playsInline controls muted /> */}
+      {/* <audio ref={localAudioRef} autoPlay muted /> */}
+      <div className="flex justify-center mt-10">
         <audio ref={remoteAudioRef} autoPlay playsInline controls />
       </div>
     </div>
