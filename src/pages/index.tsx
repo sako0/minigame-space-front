@@ -15,12 +15,8 @@ const IndexPage = () => {
 
     PConnection.addEventListener("track", (event) => {
       console.log("Remote stream:", event.streams[0]);
-      try {
-        if (remoteAudioRef.current) {
-          remoteAudioRef.current.srcObject = event.streams[0];
-        }
-      } catch (error) {
-        console.error("Error assigning remote stream:", error);
+      if (remoteAudioRef.current) {
+        remoteAudioRef.current.srcObject = event.streams[0];
       }
     });
 
@@ -99,93 +95,100 @@ const IndexPage = () => {
     });
     peerConnectionRef.current = peerConnection;
 
-    // ここでローカルストリームを取得
-    const localStream = await navigator.mediaDevices.getUserMedia({
-      audio: true,
-    });
-    // ここでローカルストリームを再生
-    localStream.getTracks().forEach((track) => {
-      peerConnection.addTrack(track, localStream);
-    });
+    try {
+      // ここでローカルストリームを取得
+      const localStream = await navigator.mediaDevices.getUserMedia({
+        audio: true,
+      });
+      // ここでローカルストリームを再生
+      localStream.getTracks().forEach((track) => {
+        peerConnection.addTrack(track, localStream);
+      });
 
-    newSocket.onopen = () => {
-      console.log("WebSocket opened");
-    };
+      newSocket.onopen = () => {
+        console.log("WebSocket opened");
+      };
 
-    // ここでWebSocketが閉じた時の処理を設定
-    newSocket.onclose = (event) => {
-      console.log("WebSocket closed:", event.code, event.reason);
-    };
+      // ここでWebSocketが閉じた時の処理を設定
+      newSocket.onclose = (event) => {
+        console.log("WebSocket closed:", event.code, event.reason);
+      };
 
-    // ここでWebSocketのMsgが来た時の処理を設定
-    newSocket.onmessage = async (event) => {
-      if (!event?.data) {
-        return;
-      }
-      const data = JSON.parse(event.data);
-      // offerが来た時の処理
-      if (data.type === "offer") {
-        const sdpData = data.sdp;
-        console.log("Receive offer:", sdpData);
-
-        await peerConnection.setRemoteDescription(
-          new RTCSessionDescription({ type: "offer", sdp: sdpData })
-        );
-        // 新しいトラックを追加
-        const audioTransceiver = peerConnection.addTransceiver("audio", {
-          direction: "sendrecv",
-        });
-        audioTransceiver.sender.replaceTrack(localStream.getTracks()[0]);
-        // ここでanswerを作成
-        const answer = await peerConnection.createAnswer();
-        await peerConnection.setLocalDescription({
-          type: "answer",
-          sdp: answer.sdp,
-        });
-        // ここでanswerを送信
-        newSocket.send(
-          JSON.stringify({
-            type: "answer",
-            answer,
-            sdp: answer.sdp,
-            roomId,
-          })
-        );
-
-        // ここでICE candidateが来るまで待つ
-        for (const candidate of pendingCandidatesRef.current) {
-          await peerConnection.addIceCandidate(candidate);
+      // ここでWebSocketのMsgが来た時の処理を設定
+      newSocket.onmessage = async (event) => {
+        if (!event?.data) {
+          return;
         }
-        pendingCandidatesRef.current.length = 0;
-        // ここでICE candidateが来た時の処理
-      } else if (data.type === "candidate") {
-        console.log("Receiving ICE candidate:", data.candidate);
-        const candidate = new RTCIceCandidate(data.candidate);
-        // リモートのSDPがセットされている場合はICE candidateを追加
-        if (
-          peerConnection.remoteDescription &&
-          peerConnection.remoteDescription.type
-        ) {
-          await peerConnection.addIceCandidate(candidate);
-          console.log("Added ICE candidate:", candidate);
-          // リモートのSDPがセットされていない場合はICE candidateを保留
-        } else {
-          pendingCandidatesRef.current.push(candidate);
-        }
-        // answerが来た時の処理
-      } else if (data.type === "answer") {
-        console.log("Receive answer:", data.answer);
-        // ここで、RTCPeerConnectionの状態をチェック
-        if (peerConnection.signalingState === "have-local-offer") {
-          // リモートのAnswerを設定
+        const data = JSON.parse(event.data);
+        // offerが来た時の処理
+        if (data.type === "offer") {
+          const sdpData = data.sdp;
+          console.log("Receive offer:", sdpData);
+
           await peerConnection.setRemoteDescription(
-            new RTCSessionDescription({ type: "answer", sdp: data.answer.sdp })
+            new RTCSessionDescription({ type: "offer", sdp: sdpData })
           );
-        } else {
-          console.log("Signaling state is not 'have-local-offer'");
+          // 新しいトラックを追加
+          const audioTransceiver = peerConnection.addTransceiver("audio", {
+            direction: "sendrecv",
+          });
+          audioTransceiver.sender.replaceTrack(localStream.getTracks()[0]);
+          // ここでanswerを作成
+          const answer = await peerConnection.createAnswer();
+          await peerConnection.setLocalDescription({
+            type: "answer",
+            sdp: answer.sdp,
+          });
+          // ここでanswerを送信
+          newSocket.send(
+            JSON.stringify({
+              type: "answer",
+              answer,
+              sdp: answer.sdp,
+              roomId,
+            })
+          );
+
+          // ここでICE candidateが来るまで待つ
+          for (const candidate of pendingCandidatesRef.current) {
+            await peerConnection.addIceCandidate(candidate);
+          }
+          pendingCandidatesRef.current.length = 0;
+          // ここでICE candidateが来た時の処理
+        } else if (data.type === "candidate") {
+          console.log("Receiving ICE candidate:", data.candidate);
+          const candidate = new RTCIceCandidate(data.candidate);
+          // リモートのSDPがセットされている場合はICE candidateを追加
+          if (
+            peerConnection.remoteDescription &&
+            peerConnection.remoteDescription.type
+          ) {
+            await peerConnection.addIceCandidate(candidate);
+            console.log("Added ICE candidate:", candidate);
+            // リモートのSDPがセットされていない場合はICE candidateを保留
+          } else {
+            pendingCandidatesRef.current.push(candidate);
+          }
+          // answerが来た時の処理
+        } else if (data.type === "answer") {
+          console.log("Receive answer:", data.answer);
+          // ここで、RTCPeerConnectionの状態をチェック
+          if (peerConnection.signalingState === "have-local-offer") {
+            // リモートのAnswerを設定
+            await peerConnection.setRemoteDescription(
+              new RTCSessionDescription({
+                type: "answer",
+                sdp: data.answer.sdp,
+              })
+            );
+          } else {
+            console.log("Signaling state is not 'have-local-offer'");
+          }
         }
-      }
-    };
+      };
+    } catch (error) {
+      console.error("Error getting local stream:", error);
+    }
 
     // ここでICE connectionの状態が変わった時の処理を設定
     peerConnection.oniceconnectionstatechange = () => {
