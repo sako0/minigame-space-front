@@ -261,6 +261,13 @@ const IndexPage = () => {
     }
   };
 
+  // 再生する
+  const handleAudioPlayback = () => {
+    if (remoteAudioRef.current) {
+      remoteAudioRef.current.play();
+    }
+  };
+
   // コンポーネントがアンマウントされた時に呼ばれる
   useEffect(() => {
     return () => {
@@ -280,6 +287,7 @@ const IndexPage = () => {
         console.log("Remote stream:", event.streams[0]);
         if (remoteAudioRef.current) {
           remoteAudioRef.current.srcObject = event.streams[0];
+          remoteAudioRef.current.play();
         }
       };
     }
@@ -314,7 +322,7 @@ const IndexPage = () => {
       </div>
       <div>
         <audio ref={localAudioRef} autoPlay playsInline controls muted />
-        <audio ref={remoteAudioRef} autoPlay controls />
+        <audio ref={remoteAudioRef} autoPlay playsInline controls />
       </div>
     </div>
   );
