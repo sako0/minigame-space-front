@@ -287,7 +287,6 @@ const IndexPage = () => {
         console.log("Remote stream:", event.streams[0]);
         if (remoteAudioRef.current) {
           remoteAudioRef.current.srcObject = event.streams[0];
-          remoteAudioRef.current.play();
         }
       };
     }
@@ -305,7 +304,8 @@ const IndexPage = () => {
         />
         <button
           onClick={async () => {
-            joinRoom();
+            await joinRoom();
+            handleAudioPlayback();
           }}
           className="bg-lime-300"
         >
@@ -321,7 +321,7 @@ const IndexPage = () => {
         </button>
       </div>
       <div>
-        <audio ref={localAudioRef} autoPlay playsInline controls muted />
+        {/* <audio ref={localAudioRef} autoPlay playsInline controls muted /> */}
         <audio ref={remoteAudioRef} autoPlay playsInline controls />
       </div>
     </div>
