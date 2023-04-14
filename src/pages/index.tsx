@@ -219,32 +219,41 @@ const IndexPage = () => {
   }, [roomId]);
   // Offerを作成してルームに参加する
   const createOfferAndJoinRoom = useCallback(async () => {
-    await createWebSocketAndPeerConnection();
+    try {
+      await createWebSocketAndPeerConnection();
+    } catch (error) {
+      console.error("Error createWebSocketAndPeerConnection:", error);
+    }
+
     addEventListeners();
     const { current: PConnection } = peerConnectionRef;
     if (!PConnection) return;
 
-    const offer = await PConnection.createOffer();
-    if (offer) {
-      await PConnection.setLocalDescription({
-        type: "offer",
-        sdp: offer.sdp,
-      });
-
-      newSocketRef.current?.send(
-        JSON.stringify({
-          type: "join",
-          roomId,
-        })
-      );
-
-      newSocketRef.current?.send(
-        JSON.stringify({
+    try {
+      const offer = await PConnection.createOffer();
+      if (offer) {
+        await PConnection.setLocalDescription({
           type: "offer",
-          roomId,
           sdp: offer.sdp,
-        })
-      );
+        });
+
+        newSocketRef.current?.send(
+          JSON.stringify({
+            type: "join",
+            roomId,
+          })
+        );
+
+        newSocketRef.current?.send(
+          JSON.stringify({
+            type: "offer",
+            roomId,
+            sdp: offer.sdp,
+          })
+        );
+      }
+    } catch (error) {
+      console.error("Error createOfferAndJoinRoom:", error);
     }
   }, [addEventListeners, createWebSocketAndPeerConnection, roomId]);
 
