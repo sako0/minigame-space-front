@@ -314,7 +314,7 @@ const IndexPage = () => {
       </div>
       <div>
         <audio ref={localAudioRef} autoPlay playsInline controls muted />
-        <audio ref={remoteAudioRef} autoPlay playsInline />
+        <audio ref={remoteAudioRef} autoPlay controls />
       </div>
     </div>
   );
