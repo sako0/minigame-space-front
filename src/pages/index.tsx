@@ -15,8 +15,12 @@ const IndexPage = () => {
 
     PConnection.addEventListener("track", (event) => {
       console.log("Remote stream:", event.streams[0]);
-      if (remoteAudioRef.current) {
-        remoteAudioRef.current.srcObject = event.streams[0];
+      try {
+        if (remoteAudioRef.current) {
+          remoteAudioRef.current.srcObject = event.streams[0];
+        }
+      } catch (error) {
+        console.error("Error assigning remote stream:", error);
       }
     });
 
