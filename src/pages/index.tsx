@@ -320,7 +320,12 @@ const IndexPage = () => {
         />
         <button
           onClick={async () => {
-            await joinRoom();
+            try {
+              await joinRoom();
+            } catch (error) {
+              console.log("Error joinRoom:", error);
+            }
+
             handleAudioPlayback();
           }}
           className="bg-lime-300"
