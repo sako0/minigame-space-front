@@ -16,6 +16,9 @@ const IndexPage = () => {
     PConnection.addEventListener("track", (event) => {
       console.log("Remote stream:", event.streams[0]);
       if (remoteAudioRef.current) {
+        if (!event.streams[0]) {
+          console.error("Remote stream is not exists.");
+        }
         remoteAudioRef.current.srcObject = event.streams[0];
       }
     });
