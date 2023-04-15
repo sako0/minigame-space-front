@@ -2,9 +2,9 @@ name: Deploy Next.js App to AWS Fargate
 
 on:
   push:
-  workflow_dispatch:
     branches:
       - main # デプロイするブランチを指定します
+  workflow_dispatch:
 
 jobs:
   deploy:
@@ -52,5 +52,5 @@ jobs:
           task-definition: task-definition.json
           service: mini-game-space-service-front
           cluster: mini-game-space-cluster-front
-          container: app
+          container: front
           image: ${{ steps.login-ecr.outputs.registry }}/webrtc-voice-front:latest
