@@ -2,6 +2,7 @@ name: Deploy Next.js App to AWS Fargate
 
 on:
   push:
+  workflow_dispatch:
     branches:
       - main # デプロイするブランチを指定します
 
