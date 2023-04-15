@@ -1,7 +1,7 @@
 {
   "family": "mini-game-space-family-front",
-  "taskRoleArn": "arn:aws:iam::282706015608:role/fullaccess",
-  "executionRoleArn": "arn:aws:iam::282706015608:role/fullaccess",
+  "taskRoleArn": "arn:aws:iam::282706015608:role/all",
+  "executionRoleArn": "arn:aws:iam::282706015608:role/all",
   "networkMode": "awsvpc",
   "containerDefinitions": [
     {
