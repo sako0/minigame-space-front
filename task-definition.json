@@ -7,9 +7,9 @@
     {
       "name": "front",
       "image": "282706015608.dkr.ecr.ap-northeast-1.amazonaws.com/webrtc-voice-front:latest",
-      "cpu": 1024,
-      "memory": 2048,
-      "memoryReservation": 1024,
+      "cpu": 512,
+      "memory": 1024,
+      "memoryReservation": 512,
       "essential": true,
       "portMappings": [
         {
@@ -36,6 +36,6 @@
     "cpuArchitecture": "X86_64",
     "operatingSystemFamily": "LINUX"
   },
-  "cpu": "1024",
-  "memory": "2048"
+  "cpu": "512",
+  "memory": "1024"
 }
