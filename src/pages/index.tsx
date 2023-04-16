@@ -55,7 +55,7 @@ const IndexPage = () => {
     if (!roomId) return;
     const newSocket = new WebSocket(
       process.env.NODE_ENV === "production"
-        ? `wss://api.mini-game-space.link//socket.io/?roomId=${roomId}`
+        ? `wss://api.mini-game-space.link/socket.io/?roomId=${roomId}`
         : `ws://localhost:5500/socket.io/?roomId=${roomId}`
     );
     newSocketRef.current = newSocket;
