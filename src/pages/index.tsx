@@ -2,6 +2,7 @@ import { useState, useRef, useCallback, useEffect } from "react";
 
 const IndexPage = () => {
   const [roomId, setRoomId] = useState("");
+  const [isMuted, setIsMuted] = useState(false);
   const localAudioRef = useRef<HTMLAudioElement>(null);
   const remoteAudioRef = useRef<HTMLAudioElement>(null);
   const newSocketRef = useRef<WebSocket | null>(null);
@@ -191,6 +192,18 @@ const IndexPage = () => {
     }
   }, []);
 
+  // ミュート状態を変更する
+  const toggleMute = () => {
+    if (!peerConnectionRef.current) return;
+
+    const senders = peerConnectionRef.current.getSenders();
+    const audioSender = senders.find((sender) => sender.track);
+    if (audioSender && audioSender.track) {
+      audioSender.track.enabled = !audioSender.track.enabled;
+      setIsMuted(!audioSender.track.enabled);
+    }
+  };
+
   return (
     <div className="text-center">
       <div>
@@ -213,10 +226,18 @@ const IndexPage = () => {
         <button
           className="bg-red-500 rounded-md shadow-lg m-2 p-2"
           onClick={() => {
-            leaveRoom();
+            window.location.reload();
           }}
         >
           Leave Room
+        </button>
+        <button
+          className="bg-blue-500 rounded-md shadow-lg m-2 p-2"
+          onClick={() => {
+            toggleMute();
+          }}
+        >
+          {isMuted ? "Mute中" : "Muteする"}
         </button>
       </div>
       {/* <audio ref={localAudioRef} autoPlay muted /> */}
