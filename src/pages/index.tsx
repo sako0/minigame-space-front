@@ -1,9 +1,11 @@
 import React from "react";
 import { useState, useRef, useCallback, useEffect } from "react";
+import { v4 as uuidv4 } from "uuid";
 
 const IndexPage = () => {
   const [roomId, setRoomId] = useState("");
   const [isMuted, setIsMuted] = useState(false);
+  const [clientId, setClientId] = useState(uuidv4());
   const localAudioRef = useRef<HTMLAudioElement>(null);
   const newSocketRef = useRef<WebSocket | null>(null);
   const [remoteAudioRefsState, setRemoteAudioRefsState] = useState<
@@ -47,6 +49,7 @@ const IndexPage = () => {
               type: "candidate",
               roomId,
               candidate: event.candidate,
+              sender: clientId,
             })
           );
         }
@@ -67,7 +70,7 @@ const IndexPage = () => {
         }
       });
     },
-    [roomId]
+    [clientId, roomId]
   );
   // コールをかける
   const offerCall = useCallback(async () => {
@@ -77,10 +80,15 @@ const IndexPage = () => {
       const offer = await PConnection.createOffer();
       await PConnection.setLocalDescription(offer);
       newSocketRef.current?.send(
-        JSON.stringify({ type: "offer", roomId, sdp: offer.sdp })
+        JSON.stringify({
+          type: "offer",
+          roomId,
+          sdp: offer.sdp,
+          sender: clientId,
+        })
       );
     });
-  }, [roomId]);
+  }, [clientId, roomId]);
 
   // WebSocketとPeerConnectionを作成する
   const createWebSocketAndPeerConnection = useCallback(async () => {
@@ -91,9 +99,6 @@ const IndexPage = () => {
         : `ws://192.168.11.6:5500/socket.io/?roomId=${roomId}`
     );
     newSocketRef.current = newSocket;
-    newSocket.onopen = async () => {
-      offerCall();
-    };
     const peerConnection = new RTCPeerConnection({
       iceServers: [
         { urls: "stun:stun1.l.google.com:19302" },
@@ -119,6 +124,9 @@ const IndexPage = () => {
       const data = JSON.parse(event.data);
       if (data.type === "offer") {
         const sdpData = data.sdp;
+        const sender = data.sender;
+
+        if (sender === clientId) return; // 自分自身からのofferは無視
 
         await peerConnection.setRemoteDescription(
           new RTCSessionDescription({ type: "offer", sdp: sdpData })
@@ -138,6 +146,7 @@ const IndexPage = () => {
             answer,
             sdp: answer.sdp,
             roomId,
+            sender: data.sender,
           })
         );
         // ここでICE candidateが来るまで待つ
@@ -149,6 +158,10 @@ const IndexPage = () => {
         });
       } else if (data.type === "answer") {
         const sdpData = data.sdp;
+        const sender = data.sender;
+
+        if (sender === clientId) return; // 自分自身からのanswerは無視
+
         if (peerConnection.signalingState === "have-local-offer") {
           await peerConnection.setRemoteDescription(
             new RTCSessionDescription({
@@ -159,6 +172,10 @@ const IndexPage = () => {
         }
       } else if (data.type === "candidate") {
         const candidate = new RTCIceCandidate(data.candidate);
+        const sender = data.sender;
+
+        if (sender === clientId) return; // 自分自身からのcandidateは無視
+
         if (
           peerConnection.iceConnectionState === "connected" ||
           peerConnection.iceConnectionState === "completed"
@@ -172,14 +189,22 @@ const IndexPage = () => {
         }
       }
     };
-  }, [roomId, addEventListeners, offerCall]);
+  }, [roomId, addEventListeners, clientId]);
 
   // 入室する
   const joinRoom = useCallback(async () => {
     if (!roomId) return;
 
     await createWebSocketAndPeerConnection();
-  }, [roomId, createWebSocketAndPeerConnection]);
+    newSocketRef.current?.send(
+      JSON.stringify({
+        type: "set-client-id",
+        clientId: clientId,
+        roomId,
+      })
+    );
+    offerCall();
+  }, [roomId, createWebSocketAndPeerConnection, clientId, offerCall]);
 
   // 退室する
   const leaveRoom = useCallback(() => {
@@ -201,14 +226,14 @@ const IndexPage = () => {
         }
       });
     }
-  }, []);
+  }, [remoteAudioRefsState]);
 
   // コンポーネントがアンマウントされた時LeaveRoomを実行する
-  useEffect(() => {
-    return () => {
-      leaveRoom();
-    };
-  }, [leaveRoom]);
+  // useEffect(() => {
+  //   return () => {
+  //     leaveRoom();
+  //   };
+  // }, [leaveRoom]);
   // リモート音声ストリームが更新されたときに、ストリームを<audio>要素に割り当てる
   useEffect(() => {
     remoteAudioStreams.forEach((stream) => {
@@ -284,7 +309,6 @@ const IndexPage = () => {
               autoPlay
               playsInline
               controls
-              muted={false}
             />
           )
         )}
