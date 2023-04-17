@@ -69,6 +69,18 @@ const IndexPage = () => {
     },
     [roomId]
   );
+  // コールをかける
+  const offerCall = useCallback(async () => {
+    const { current: PConnections } = peerConnectionRefs;
+    if (!PConnections) return;
+    PConnections.forEach(async (PConnection) => {
+      const offer = await PConnection.createOffer();
+      await PConnection.setLocalDescription(offer);
+      newSocketRef.current?.send(
+        JSON.stringify({ type: "offer", roomId, sdp: offer.sdp })
+      );
+    });
+  }, [roomId]);
 
   // WebSocketとPeerConnectionを作成する
   const createWebSocketAndPeerConnection = useCallback(async () => {
@@ -79,6 +91,9 @@ const IndexPage = () => {
         : `ws://192.168.11.6:5500/socket.io/?roomId=${roomId}`
     );
     newSocketRef.current = newSocket;
+    newSocket.onopen = async () => {
+      offerCall();
+    };
     const peerConnection = new RTCPeerConnection({
       iceServers: [
         { urls: "stun:stun1.l.google.com:19302" },
@@ -157,26 +172,14 @@ const IndexPage = () => {
         }
       }
     };
-  }, [roomId, addEventListeners]);
+  }, [roomId, addEventListeners, offerCall]);
 
-  // コールをかける
-  const offerCall = useCallback(async () => {
-    const { current: PConnections } = peerConnectionRefs;
-    if (!PConnections) return;
-    PConnections.forEach(async (PConnection) => {
-      const offer = await PConnection.createOffer();
-      await PConnection.setLocalDescription(offer);
-      newSocketRef.current?.send(
-        JSON.stringify({ type: "offer", roomId, sdp: offer.sdp })
-      );
-    });
-  }, [roomId]);
   // 入室する
   const joinRoom = useCallback(async () => {
     if (!roomId) return;
+
     await createWebSocketAndPeerConnection();
-    offerCall();
-  }, [roomId, createWebSocketAndPeerConnection, offerCall]);
+  }, [roomId, createWebSocketAndPeerConnection]);
 
   // 退室する
   const leaveRoom = useCallback(() => {
