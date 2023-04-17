@@ -275,7 +275,7 @@ const IndexPage = () => {
       </div>
 
       <div className="mt-10">
-        {/* <audio ref={localAudioRef} autoPlay playsInline controls muted /> */}
+        <audio ref={localAudioRef} autoPlay playsInline muted />
         {Array.from(remoteAudioRefsState.entries()).map(
           ([streamId, remoteAudioRef]) => (
             <audio
