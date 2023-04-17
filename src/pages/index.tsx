@@ -1,55 +1,74 @@
+import React from "react";
 import { useState, useRef, useCallback, useEffect } from "react";
 
 const IndexPage = () => {
   const [roomId, setRoomId] = useState("");
   const [isMuted, setIsMuted] = useState(false);
   const localAudioRef = useRef<HTMLAudioElement>(null);
-  const remoteAudioRef = useRef<HTMLAudioElement>(null);
   const newSocketRef = useRef<WebSocket | null>(null);
-  const peerConnectionRef = useRef<RTCPeerConnection>();
-  const pendingCandidatesRef = useRef<RTCIceCandidate[]>([]);
+  const [remoteAudioRefsState, setRemoteAudioRefsState] = useState<
+    Map<string, React.RefObject<HTMLAudioElement>>
+  >(new Map());
+  const [remoteAudioStreams, setRemoteAudioStreams] = useState<
+    Map<string, MediaStream>
+  >(new Map());
+  const peerConnectionRefs = useRef<Map<string, RTCPeerConnection>>(new Map()); // 複数のPeerConnectionを管理するためのMap
+  const pendingCandidatesRefs = useRef<Map<string, RTCIceCandidate[]>>(
+    new Map()
+  );
 
-  // 再生する
-  const handleAudioPlayback = () => {
-    if (remoteAudioRef.current) {
-      remoteAudioRef.current.play();
-    }
-  };
   // イベントリスナーを追加する
-  const addEventListeners = useCallback(() => {
-    const { current: PConnection } = peerConnectionRef;
-    if (!PConnection) return;
+  const addEventListeners = useCallback(
+    (PConnection: RTCPeerConnection) => {
+      if (!PConnection) return;
+      PConnection.addEventListener("track", (event) => {
+        const streamId = event.streams[0].id;
+        const newAudioRef = React.createRef<HTMLAudioElement>();
 
-    PConnection.addEventListener("track", (event) => {
-      if (remoteAudioRef.current) {
-        remoteAudioRef.current.srcObject = event.streams[0];
-      }
-    });
+        // Update remoteAudioRefs
+        setRemoteAudioRefsState((prevRemoteAudioRefs) => {
+          const newRemoteAudioRefs = new Map(prevRemoteAudioRefs);
+          newRemoteAudioRefs.set(streamId, newAudioRef);
+          return newRemoteAudioRefs;
+        });
 
-    PConnection.addEventListener("icecandidate", (event) => {
-      if (event.candidate) {
-        newSocketRef.current?.send(
-          JSON.stringify({
-            type: "candidate",
-            roomId,
-            candidate: event.candidate,
-          })
-        );
-      }
-    });
+        // Update remoteAudioStreams
+        setRemoteAudioStreams((prevRemoteAudioStreams) => {
+          const newRemoteAudioStreams = new Map(prevRemoteAudioStreams);
+          newRemoteAudioStreams.set(streamId, event.streams[0]);
+          return newRemoteAudioStreams;
+        });
+      });
 
-    PConnection.addEventListener("iceconnectionstatechange", async () => {
-      if (
-        PConnection.iceConnectionState === "connected" ||
-        PConnection.iceConnectionState === "completed"
-      ) {
-        for (const candidate of pendingCandidatesRef.current) {
-          await PConnection.addIceCandidate(candidate);
+      PConnection.addEventListener("icecandidate", (event) => {
+        if (event.candidate) {
+          newSocketRef.current?.send(
+            JSON.stringify({
+              type: "candidate",
+              roomId,
+              candidate: event.candidate,
+            })
+          );
         }
-        pendingCandidatesRef.current.length = 0;
-      }
-    });
-  }, [roomId]);
+      });
+
+      PConnection.addEventListener("iceconnectionstatechange", async () => {
+        if (
+          PConnection.iceConnectionState === "connected" ||
+          PConnection.iceConnectionState === "completed"
+        ) {
+          // ここでICE candidateが来るまで待つ
+          pendingCandidatesRefs.current.forEach(async (candidates) => {
+            candidates.forEach(async (candidate) => {
+              await PConnection.addIceCandidate(candidate);
+            });
+            candidates.length = 0;
+          });
+        }
+      });
+    },
+    [roomId]
+  );
 
   // WebSocketとPeerConnectionを作成する
   const createWebSocketAndPeerConnection = useCallback(async () => {
@@ -57,7 +76,7 @@ const IndexPage = () => {
     const newSocket = new WebSocket(
       process.env.NODE_ENV === "production"
         ? `wss://api.mini-game-space.link/socket.io/?roomId=${roomId}`
-        : `ws://localhost:5500/socket.io/?roomId=${roomId}`
+        : `ws://192.168.11.6:5500/socket.io/?roomId=${roomId}`
     );
     newSocketRef.current = newSocket;
     const peerConnection = new RTCPeerConnection({
@@ -68,14 +87,15 @@ const IndexPage = () => {
         { urls: "stun:stun4.l.google.com:19302" },
       ],
     });
-    peerConnectionRef.current = peerConnection;
-
     const localStream = await navigator.mediaDevices.getUserMedia({
       audio: true,
     });
+
     localStream.getTracks().forEach((track) => {
       peerConnection.addTrack(track, localStream);
     });
+    peerConnectionRefs.current.set(roomId, peerConnection);
+    addEventListeners(peerConnection);
 
     newSocket.onmessage = async (event) => {
       if (!event?.data) {
@@ -106,10 +126,12 @@ const IndexPage = () => {
           })
         );
         // ここでICE candidateが来るまで待つ
-        for (const candidate of pendingCandidatesRef.current) {
-          await peerConnection.addIceCandidate(candidate);
-        }
-        pendingCandidatesRef.current.length = 0;
+        pendingCandidatesRefs.current.forEach(async (candidates) => {
+          candidates.forEach(async (candidate) => {
+            await peerConnection.addIceCandidate(candidate);
+          });
+          candidates.length = 0;
+        });
       } else if (data.type === "answer") {
         const sdpData = data.sdp;
         if (peerConnection.signalingState === "have-local-offer") {
@@ -128,33 +150,31 @@ const IndexPage = () => {
         ) {
           await peerConnection.addIceCandidate(candidate);
         } else {
-          pendingCandidatesRef.current.push(candidate);
+          const pendingCandidates =
+            pendingCandidatesRefs.current.get(roomId) || [];
+          pendingCandidates.push(candidate);
+          pendingCandidatesRefs.current.set(roomId, pendingCandidates);
         }
       }
     };
-    addEventListeners();
   }, [roomId, addEventListeners]);
 
   // コールをかける
   const offerCall = useCallback(async () => {
-    const { current: PConnection } = peerConnectionRef;
-    if (!PConnection) return;
-    const offer = await PConnection.createOffer();
-    await PConnection.setLocalDescription(offer);
-    newSocketRef.current?.send(
-      JSON.stringify({ type: "offer", roomId, sdp: offer.sdp })
-    );
+    const { current: PConnections } = peerConnectionRefs;
+    if (!PConnections) return;
+    PConnections.forEach(async (PConnection) => {
+      const offer = await PConnection.createOffer();
+      await PConnection.setLocalDescription(offer);
+      newSocketRef.current?.send(
+        JSON.stringify({ type: "offer", roomId, sdp: offer.sdp })
+      );
+    });
   }, [roomId]);
   // 入室する
   const joinRoom = useCallback(async () => {
     if (!roomId) return;
     await createWebSocketAndPeerConnection();
-    if (localAudioRef.current) {
-      localAudioRef.current.srcObject =
-        await navigator.mediaDevices.getUserMedia({
-          audio: true,
-        });
-    }
     offerCall();
   }, [roomId, createWebSocketAndPeerConnection, offerCall]);
 
@@ -163,14 +183,20 @@ const IndexPage = () => {
     if (newSocketRef.current) {
       newSocketRef.current.close();
     }
-    if (peerConnectionRef.current) {
-      peerConnectionRef.current.close();
+    if (peerConnectionRefs.current) {
+      peerConnectionRefs.current.forEach((PConnection) => {
+        PConnection.close();
+      });
     }
     if (localAudioRef.current) {
       localAudioRef.current.srcObject = null;
     }
-    if (remoteAudioRef.current) {
-      remoteAudioRef.current.srcObject = null;
+    if (remoteAudioRefsState) {
+      remoteAudioRefsState.forEach((remoteAudioRef) => {
+        if (remoteAudioRef.current) {
+          remoteAudioRef.current.srcObject = null;
+        }
+      });
     }
   }, []);
 
@@ -180,28 +206,33 @@ const IndexPage = () => {
       leaveRoom();
     };
   }, [leaveRoom]);
-
-  // リモートのストリームを取得する*重要*
+  // リモート音声ストリームが更新されたときに、ストリームを<audio>要素に割り当てる
   useEffect(() => {
-    if (peerConnectionRef.current) {
-      peerConnectionRef.current.ontrack = (event) => {
-        if (remoteAudioRef.current) {
-          remoteAudioRef.current.srcObject = event.streams[0];
-        }
-      };
-    }
-  }, []);
+    remoteAudioStreams.forEach((stream) => {
+      const remoteAudio = remoteAudioRefsState.get(stream.id);
+      console.log(remoteAudio);
+
+      if (remoteAudio && remoteAudio.current) {
+        console.log("Stream info:", stream);
+        remoteAudio.current.srcObject = stream;
+        remoteAudio.current.play().catch((error) => {
+          console.error("Audio playback failed:", error);
+        });
+      }
+    });
+  }, [remoteAudioStreams, remoteAudioRefsState]);
 
   // ミュート状態を変更する
   const toggleMute = () => {
-    if (!peerConnectionRef.current) return;
-
-    const senders = peerConnectionRef.current.getSenders();
-    const audioSender = senders.find((sender) => sender.track);
-    if (audioSender && audioSender.track) {
-      audioSender.track.enabled = !audioSender.track.enabled;
-      setIsMuted(!audioSender.track.enabled);
-    }
+    if (!peerConnectionRefs.current) return;
+    peerConnectionRefs.current.forEach((PConnection) => {
+      const senders = PConnection.getSenders();
+      const audioSender = senders.find((sender) => sender.track);
+      if (audioSender && audioSender.track) {
+        audioSender.track.enabled = !audioSender.track.enabled;
+        setIsMuted(!audioSender.track.enabled);
+      }
+    });
   };
 
   return (
@@ -218,7 +249,6 @@ const IndexPage = () => {
           className="bg-lime-500 rounded-md shadow-lg m-2 p-2"
           onClick={async () => {
             await joinRoom();
-            handleAudioPlayback();
           }}
         >
           Join Room
@@ -240,9 +270,21 @@ const IndexPage = () => {
           {isMuted ? "Mute中" : "Muteする"}
         </button>
       </div>
-      {/* <audio ref={localAudioRef} autoPlay muted /> */}
+
       <div className="flex justify-center mt-10">
-        <audio ref={remoteAudioRef} autoPlay playsInline controls />
+        <audio ref={localAudioRef} autoPlay playsInline controls muted />
+        {Array.from(remoteAudioRefsState.entries()).map(
+          ([streamId, remoteAudioRef]) => (
+            <audio
+              ref={remoteAudioRef}
+              key={streamId}
+              autoPlay
+              playsInline
+              controls
+              muted={false}
+            />
+          )
+        )}
       </div>
     </div>
   );
