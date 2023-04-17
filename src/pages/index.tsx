@@ -274,8 +274,8 @@ const IndexPage = () => {
         </button>
       </div>
 
-      <div className="flex justify-center mt-10">
-        <audio ref={localAudioRef} autoPlay playsInline controls muted />
+      <div className="mt-10">
+        {/* <audio ref={localAudioRef} autoPlay playsInline controls muted /> */}
         {Array.from(remoteAudioRefsState.entries()).map(
           ([streamId, remoteAudioRef]) => (
             <audio
