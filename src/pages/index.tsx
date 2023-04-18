@@ -33,7 +33,10 @@ const IndexPage = () => {
 
       if (type === "client-joined") {
         const { connectedUserIds } = data;
-        connectedUserIds.forEach(async (userId: string) => {
+        const newUserIds = connectedUserIds.filter(
+          (id: string) => !peerConnectionRefs.current.has(id)
+        );
+        newUserIds.forEach(async (userId: string) => {
           const peerConnection = new RTCPeerConnection({
             iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
           });
@@ -67,17 +70,18 @@ const IndexPage = () => {
               return newRemoteAudioRefs;
             });
           };
-
-          const offer = await peerConnection.createOffer();
-          await peerConnection.setLocalDescription(offer);
-          newSocket.send(
-            JSON.stringify({
-              type: "offer",
-              sdp: offer.sdp,
-              userId: userId,
-              roomId: roomId,
-            })
-          );
+          if (peerConnection) {
+            const offer = await peerConnection.createOffer();
+            await peerConnection.setLocalDescription(offer);
+            newSocket.send(
+              JSON.stringify({
+                type: "offer",
+                sdp: offer.sdp,
+                userId: userId,
+                roomId: roomId,
+              })
+            );
+          }
 
           peerConnectionRefs.current.set(userId, peerConnection);
         });
