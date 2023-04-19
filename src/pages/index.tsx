@@ -10,7 +10,7 @@ const IndexPage = () => {
 
   // const remoteAudioRefs = useRef(new Map());
   const peerConnectionRefs = useRef(new Map());
-  const userId = uuidv4();
+  const currentUserUid = uuidv4();
 
   const joinRoom = useCallback(async () => {
     if (!roomId) return;
@@ -29,15 +29,124 @@ const IndexPage = () => {
     const newSocket = new WebSocket(ws);
     newSocket.onmessage = async (event) => {
       const data = JSON.parse(event.data);
-      const { type, clientId } = data;
+      const { type, userId, toUserId, connectedUserIds } = data;
 
       if (type === "client-joined") {
-        const { connectedUserIds } = data;
+        const existingPeerConnection = peerConnectionRefs.current.get(userId);
+        if (!existingPeerConnection) {
+          const newPeerConnection = new RTCPeerConnection({
+            iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
+          });
+
+          localStream.getTracks().forEach((track) => {
+            newPeerConnection.addTrack(track, localStream);
+          });
+
+          newPeerConnection.onicecandidate = (event) => {
+            if (event.candidate) {
+              newSocket.send(
+                JSON.stringify({
+                  type: "ice-candidate",
+                  candidate: event.candidate,
+                  userId: currentUserUid,
+                  toUserId: userId,
+                  roomId: roomId,
+                })
+              );
+            }
+          };
+
+          newPeerConnection.ontrack = (event) => {
+            console.log("ontrack event:", event);
+            const remoteStream = event.streams[0];
+            setRemoteAudioRefs((prevRemoteAudioRefs) => {
+              const newRemoteAudioRefs = new Map(prevRemoteAudioRefs);
+              newRemoteAudioRefs.set(userId, {
+                ref: React.createRef(),
+                stream: remoteStream,
+              });
+              return newRemoteAudioRefs;
+            });
+          };
+
+          peerConnectionRefs.current.set(userId, newPeerConnection);
+        }
+
+        console.log("Received connectedUserIds: ", connectedUserIds);
         const newUserIds = connectedUserIds.filter(
-          (id: string) => !peerConnectionRefs.current.has(id)
+          (id: string) =>
+            !peerConnectionRefs.current.has(id) && id !== currentUserUid
         );
-        newUserIds.forEach(async (userId: string) => {
-          const peerConnection = new RTCPeerConnection({
+        console.log("New user IDs: ", newUserIds);
+        await Promise.all(
+          newUserIds.map(async (otherUserId: string) => {
+            let peerConnection = peerConnectionRefs.current.get(otherUserId);
+
+            if (!peerConnection) {
+              peerConnection = new RTCPeerConnection({
+                iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
+              });
+
+              localStream.getTracks().forEach((track) => {
+                peerConnection.addTrack(track, localStream);
+              });
+
+              peerConnection.onicecandidate = (event: any) => {
+                if (event.candidate) {
+                  newSocket.send(
+                    JSON.stringify({
+                      type: "ice-candidate",
+                      candidate: event.candidate,
+                      userId: currentUserUid,
+                      toUserId: otherUserId,
+                      roomId: roomId,
+                    })
+                  );
+                }
+              };
+
+              peerConnection.ontrack = (event: any) => {
+                console.log("ontrack event:", event);
+                const remoteStream = event.streams[0];
+                setRemoteAudioRefs((prevRemoteAudioRefs) => {
+                  const newRemoteAudioRefs = new Map(prevRemoteAudioRefs);
+                  newRemoteAudioRefs.set(otherUserId, {
+                    ref: React.createRef(),
+                    stream: remoteStream,
+                  });
+                  return newRemoteAudioRefs;
+                });
+              };
+
+              peerConnectionRefs.current.set(otherUserId, peerConnection);
+            }
+
+            const offer = await peerConnection.createOffer();
+            await peerConnection.setLocalDescription(offer);
+            newSocket.send(
+              JSON.stringify({
+                type: "offer",
+                sdp: offer.sdp,
+                userId: currentUserUid,
+                toUserId: otherUserId,
+                roomId: roomId,
+              })
+            );
+          })
+        );
+      } else if (
+        type === "offer" &&
+        currentUserUid !== userId &&
+        currentUserUid === toUserId
+      ) {
+        const { sdp } = data;
+        console.log("Received offer:", data);
+        // console.log(peerConnectionRefs);
+
+        let peerConnection = peerConnectionRefs.current.get(userId);
+
+        if (!peerConnection) {
+          peerConnection = new RTCPeerConnection({
             iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
           });
 
@@ -45,81 +154,71 @@ const IndexPage = () => {
             peerConnection.addTrack(track, localStream);
           });
 
-          peerConnection.onicecandidate = (event) => {
+          peerConnection.onicecandidate = (event: any) => {
             if (event.candidate) {
               newSocket.send(
                 JSON.stringify({
                   type: "ice-candidate",
                   candidate: event.candidate,
-                  userId: userId,
+                  userId: currentUserUid,
+                  toUserId: userId,
                   roomId: roomId,
                 })
               );
             }
           };
 
-          peerConnection.ontrack = (event) => {
+          peerConnection.ontrack = (event: any) => {
             console.log("ontrack event:", event);
             const remoteStream = event.streams[0];
             setRemoteAudioRefs((prevRemoteAudioRefs) => {
               const newRemoteAudioRefs = new Map(prevRemoteAudioRefs);
-              newRemoteAudioRefs.set(clientId, {
+              newRemoteAudioRefs.set(userId, {
                 ref: React.createRef(),
                 stream: remoteStream,
               });
               return newRemoteAudioRefs;
             });
           };
-          if (peerConnection) {
-            const offer = await peerConnection.createOffer();
-            await peerConnection.setLocalDescription(offer);
-            newSocket.send(
-              JSON.stringify({
-                type: "offer",
-                sdp: offer.sdp,
-                userId: userId,
-                roomId: roomId,
-              })
-            );
-          }
 
           peerConnectionRefs.current.set(userId, peerConnection);
-        });
-      } else if (type === "offer") {
-        const { sdp, clientId } = data;
-        console.log("peerConnectionRefs:", peerConnectionRefs.current);
-        console.log("clientId:", clientId);
-
-        const peerConnection = peerConnectionRefs.current.get(clientId);
-        console.log("peerConnection:", peerConnection);
+        }
         if (peerConnection) {
-          console.log("offer from clientId:", clientId);
           await peerConnection.setRemoteDescription(
             new RTCSessionDescription({ type: "offer", sdp })
           );
           const answer = await peerConnection.createAnswer();
+          console.log("Created answer:", answer);
           await peerConnection.setLocalDescription(answer);
           newSocket.send(
             JSON.stringify({
               type: "answer",
               sdp: answer.sdp,
-              userId: clientId,
+              userId: currentUserUid,
+              toUserId: userId,
               roomId: roomId,
             })
           );
+          console.log("Sent answer:", answer);
+        } else {
+          console.log("No peerConnection found for userId:", userId);
         }
       } else if (type === "answer") {
-        const { sdp, clientId } = data;
-        const peerConnection = peerConnectionRefs.current.get(clientId);
+        const { sdp, userId } = data;
+        const peerConnection = peerConnectionRefs.current.get(userId);
 
         if (peerConnection) {
           await peerConnection.setRemoteDescription(
             new RTCSessionDescription({ type: "answer", sdp })
           );
         }
-      } else if (type === "ice-candidate") {
-        const { candidate, clientId } = data;
-        const peerConnection = peerConnectionRefs.current.get(clientId);
+      } else if (
+        type === "ice-candidate" &&
+        peerConnectionRefs.current.has(userId) &&
+        currentUserUid === toUserId
+      ) {
+        const { candidate } = data;
+        const peerConnection = peerConnectionRefs.current.get(userId);
 
         if (peerConnection) {
           await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
@@ -128,9 +227,11 @@ const IndexPage = () => {
     };
 
     newSocket.onopen = () => {
-      newSocket.send(JSON.stringify({ type: "join-room", roomId, userId }));
+      newSocket.send(
+        JSON.stringify({ type: "join-room", roomId, userId: currentUserUid })
+      );
     };
-  }, [roomId, userId]);
+  }, [roomId, currentUserUid]);
 
   useEffect(() => {
     setIsMuted(false);
@@ -143,6 +244,30 @@ const IndexPage = () => {
       }
     });
   }, [remoteAudioRefs]);
+
+  // Leave Room 機能を追加するために、新しい useCallback 関数を作成します。
+  const leaveRoom = useCallback(() => {
+    peerConnectionRefs.current.forEach((peerConnection) => {
+      peerConnection.close();
+    });
+    peerConnectionRefs.current.clear();
+    setRemoteAudioRefs(new Map());
+  }, []);
+
+  // Mute 機能を追加するために、新しい useCallback 関数を作成します。
+  const toggleMute = useCallback(() => {
+    if (localAudioRef.current) {
+      const localStream = localAudioRef.current.srcObject;
+      if (localStream instanceof MediaStream) {
+        localStream.getAudioTracks().forEach((track) => {
+          track.enabled = !track.enabled;
+        });
+        setIsMuted((prevState) => !prevState);
+      }
+    }
+  }, []);
+
+  // 上記で定義した leaveRoom および toggleMute 関数を、各ボタンの onClick イベントに割り
 
   return (
     <div className="text-center">
@@ -165,7 +290,7 @@ const IndexPage = () => {
         <button
           className="bg-red-500 rounded-md shadow-lg m-2 p-2"
           onClick={() => {
-            // leaveRoom();
+            leaveRoom();
           }}
         >
           Leave Room
@@ -173,7 +298,7 @@ const IndexPage = () => {
         <button
           className="bg-blue-500 rounded-md shadow-lg m-2 p-2"
           onClick={() => {
-            // toggleMute();
+            toggleMute();
           }}
         >
           {isMuted ? "Mute中" : "Muteする"}
