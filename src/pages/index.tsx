@@ -7,10 +7,75 @@ const IndexPage = () => {
   const [remoteAudioRefs, setRemoteAudioRefs] = useState(new Map());
   const localAudioRef: React.RefObject<HTMLAudioElement> =
     useRef<HTMLAudioElement>(null);
-
-  // const remoteAudioRefs = useRef(new Map());
   const peerConnectionRefs = useRef(new Map());
   const currentUserUid = uuidv4();
+
+  const onIceCandidate = useCallback(
+    (event: any, userId: string, newSocket: WebSocket) => {
+      if (event.candidate) {
+        newSocket.send(
+          JSON.stringify({
+            type: "ice-candidate",
+            candidate: event.candidate,
+            userId: currentUserUid,
+            toUserId: userId,
+            roomId: roomId,
+          })
+        );
+      }
+    },
+    [currentUserUid, roomId]
+  );
+
+  const onTrack = (event: any, userId: string) => {
+    const remoteStream = event.streams[0];
+    setRemoteAudioRefs((prevRemoteAudioRefs) => {
+      const newRemoteAudioRefs = new Map(prevRemoteAudioRefs);
+      newRemoteAudioRefs.set(userId, {
+        ref: React.createRef(),
+        stream: remoteStream,
+      });
+      return newRemoteAudioRefs;
+    });
+  };
+
+  const onConnectionStateChange = (
+    peerConnection: RTCPeerConnection,
+    userId: string
+  ) => {
+    if (
+      peerConnection.connectionState === "failed" ||
+      peerConnection.connectionState === "closed" ||
+      peerConnection.connectionState === "disconnected"
+    ) {
+      setRemoteAudioRefs((prevRemoteAudioRefs) => {
+        const newRemoteAudioRefs = new Map(prevRemoteAudioRefs);
+        newRemoteAudioRefs.delete(userId);
+        return newRemoteAudioRefs;
+      });
+    }
+  };
+
+  const createPeerConnection = useCallback(
+    (userId: string, localStream: MediaStream, newSocket: WebSocket) => {
+      const peerConnection = new RTCPeerConnection({
+        iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
+      });
+
+      localStream.getTracks().forEach((track) => {
+        peerConnection.addTrack(track, localStream);
+      });
+
+      peerConnection.onicecandidate = (event) =>
+        onIceCandidate(event, userId, newSocket);
+      peerConnection.ontrack = (event) => onTrack(event, userId);
+      peerConnection.onconnectionstatechange = () =>
+        onConnectionStateChange(peerConnection, userId);
+
+      return peerConnection;
+    },
+    [onIceCandidate]
+  );
 
   const joinRoom = useCallback(async () => {
     if (!roomId) return;
@@ -71,69 +136,22 @@ const IndexPage = () => {
 
           peerConnectionRefs.current.set(userId, newPeerConnection);
         }
-
-        console.log("Received connectedUserIds: ", connectedUserIds);
         const newUserIds = connectedUserIds.filter(
           (id: string) =>
             !peerConnectionRefs.current.has(id) && id !== currentUserUid
         );
-        console.log("New user IDs: ", newUserIds);
         await Promise.all(
           newUserIds.map(async (otherUserId: string) => {
             let peerConnection = peerConnectionRefs.current.get(otherUserId);
 
             if (!peerConnection) {
-              peerConnection = new RTCPeerConnection({
-                iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
-              });
-
-              localStream.getTracks().forEach((track) => {
-                peerConnection.addTrack(track, localStream);
-              });
-
-              peerConnection.onicecandidate = (event: any) => {
-                if (event.candidate) {
-                  newSocket.send(
-                    JSON.stringify({
-                      type: "ice-candidate",
-                      candidate: event.candidate,
-                      userId: currentUserUid,
-                      toUserId: otherUserId,
-                      roomId: roomId,
-                    })
-                  );
-                }
-              };
-
-              peerConnection.ontrack = (event: any) => {
-                console.log("ontrack event:", event);
-                const remoteStream = event.streams[0];
-                setRemoteAudioRefs((prevRemoteAudioRefs) => {
-                  const newRemoteAudioRefs = new Map(prevRemoteAudioRefs);
-                  newRemoteAudioRefs.set(otherUserId, {
-                    ref: React.createRef(),
-                    stream: remoteStream,
-                  });
-                  return newRemoteAudioRefs;
-                });
-              };
-
-              peerConnection.onconnectionstatechange = () => {
-                if (
-                  peerConnection.connectionState === "failed" ||
-                  peerConnection.connectionState === "closed" ||
-                  peerConnection.connectionState === "disconnected"
-                ) {
-                  setRemoteAudioRefs((prevRemoteAudioRefs) => {
-                    const newRemoteAudioRefs = new Map(prevRemoteAudioRefs);
-                    newRemoteAudioRefs.delete(otherUserId);
-                    return newRemoteAudioRefs;
-                  });
-                }
-              };
-
-              peerConnectionRefs.current.set(otherUserId, peerConnection);
+              peerConnection = createPeerConnection(
+                otherUserId,
+                localStream,
+                newSocket
+              );
             }
+            peerConnectionRefs.current.set(otherUserId, peerConnection);
 
             const offer = await peerConnection.createOffer();
             await peerConnection.setLocalDescription(offer);
@@ -154,59 +172,11 @@ const IndexPage = () => {
         currentUserUid === toUserId
       ) {
         const { sdp } = data;
-        console.log("Received offer:", data);
-        // console.log(peerConnectionRefs);
 
         let peerConnection = peerConnectionRefs.current.get(userId);
 
         if (!peerConnection) {
-          peerConnection = new RTCPeerConnection({
-            iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
-          });
-
-          localStream.getTracks().forEach((track) => {
-            peerConnection.addTrack(track, localStream);
-          });
-
-          peerConnection.onicecandidate = (event: any) => {
-            if (event.candidate) {
-              newSocket.send(
-                JSON.stringify({
-                  type: "ice-candidate",
-                  candidate: event.candidate,
-                  userId: currentUserUid,
-                  toUserId: userId,
-                  roomId: roomId,
-                })
-              );
-            }
-          };
-
-          peerConnection.ontrack = (event: any) => {
-            console.log("ontrack event:", event);
-            const remoteStream = event.streams[0];
-            setRemoteAudioRefs((prevRemoteAudioRefs) => {
-              const newRemoteAudioRefs = new Map(prevRemoteAudioRefs);
-              newRemoteAudioRefs.set(userId, {
-                ref: React.createRef(),
-                stream: remoteStream,
-              });
-              return newRemoteAudioRefs;
-            });
-          };
-          peerConnection.onconnectionstatechange = () => {
-            if (
-              peerConnection.connectionState === "failed" ||
-              peerConnection.connectionState === "closed" ||
-              peerConnection.connectionState === "disconnected"
-            ) {
-              setRemoteAudioRefs((prevRemoteAudioRefs) => {
-                const newRemoteAudioRefs = new Map(prevRemoteAudioRefs);
-                newRemoteAudioRefs.delete(userId);
-                return newRemoteAudioRefs;
-              });
-            }
-          };
+          peerConnection = createPeerConnection(userId, localStream, newSocket);
           peerConnectionRefs.current.set(userId, peerConnection);
         }
         if (peerConnection) {
@@ -225,9 +195,6 @@ const IndexPage = () => {
               roomId: roomId,
             })
           );
-          console.log("Sent answer:", answer);
-        } else {
-          console.log("No peerConnection found for userId:", userId);
         }
       } else if (type === "answer") {
         const { sdp, userId } = data;
@@ -257,13 +224,12 @@ const IndexPage = () => {
         JSON.stringify({ type: "join-room", roomId, userId: currentUserUid })
       );
     };
-  }, [roomId, currentUserUid]);
+  }, [roomId, currentUserUid, createPeerConnection]);
 
   useEffect(() => {
     setIsMuted(false);
   }, []);
   useEffect(() => {
-    console.log("remoteAudioRefs.current:", remoteAudioRefs);
     remoteAudioRefs.forEach(({ ref, stream }) => {
       if (ref.current && ref.current.srcObject !== stream) {
         ref.current.srcObject = stream;
