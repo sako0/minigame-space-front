@@ -267,7 +267,15 @@ const IndexPage = () => {
     }
   }, []);
 
-  // 上記で定義した leaveRoom および toggleMute 関数を、各ボタンの onClick イベントに割り
+  useEffect(() => {
+    remoteAudioRefs.forEach(({ ref }) => {
+      if (ref.current && ref.current.paused) {
+        ref.current.play().catch((error: any) => {
+          console.error("Error while trying to play remote audio:", error);
+        });
+      }
+    });
+  }, [remoteAudioRefs]);
 
   return (
     <div className="text-center">
