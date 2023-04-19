@@ -118,6 +118,20 @@ const IndexPage = () => {
                 });
               };
 
+              peerConnection.onconnectionstatechange = () => {
+                if (
+                  peerConnection.connectionState === "failed" ||
+                  peerConnection.connectionState === "closed" ||
+                  peerConnection.connectionState === "disconnected"
+                ) {
+                  setRemoteAudioRefs((prevRemoteAudioRefs) => {
+                    const newRemoteAudioRefs = new Map(prevRemoteAudioRefs);
+                    newRemoteAudioRefs.delete(otherUserId);
+                    return newRemoteAudioRefs;
+                  });
+                }
+              };
+
               peerConnectionRefs.current.set(otherUserId, peerConnection);
             }
 
@@ -180,7 +194,19 @@ const IndexPage = () => {
               return newRemoteAudioRefs;
             });
           };
-
+          peerConnection.onconnectionstatechange = () => {
+            if (
+              peerConnection.connectionState === "failed" ||
+              peerConnection.connectionState === "closed" ||
+              peerConnection.connectionState === "disconnected"
+            ) {
+              setRemoteAudioRefs((prevRemoteAudioRefs) => {
+                const newRemoteAudioRefs = new Map(prevRemoteAudioRefs);
+                newRemoteAudioRefs.delete(userId);
+                return newRemoteAudioRefs;
+              });
+            }
+          };
           peerConnectionRefs.current.set(userId, peerConnection);
         }
         if (peerConnection) {
