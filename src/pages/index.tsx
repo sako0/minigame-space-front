@@ -5,6 +5,7 @@ const IndexPage = () => {
   const [roomId, setRoomId] = useState("");
   const [isMuted, setIsMuted] = useState(false);
   const [remoteAudioRefs, setRemoteAudioRefs] = useState(new Map());
+  const [remoteVolumes, setRemoteVolumes] = useState(new Map());
   const localAudioRef: React.RefObject<HTMLAudioElement> =
     useRef<HTMLAudioElement>(null);
   const peerConnectionRefs = useRef(new Map());
@@ -34,6 +35,7 @@ const IndexPage = () => {
       newRemoteAudioRefs.set(userId, {
         ref: React.createRef(),
         stream: remoteStream,
+        audioLevel: 0,
       });
       return newRemoteAudioRefs;
     });
@@ -259,6 +261,14 @@ const IndexPage = () => {
     }
   }, []);
 
+  const handleVolumeChange = useCallback((streamId: string, volume: string) => {
+    setRemoteVolumes((prevRemoteVolumes) => {
+      const newRemoteVolumes = new Map(prevRemoteVolumes);
+      newRemoteVolumes.set(streamId, volume);
+      return newRemoteVolumes;
+    });
+  }, []);
+
   useEffect(() => {
     remoteAudioRefs.forEach(({ ref }) => {
       if (ref.current && ref.current.paused) {
@@ -268,6 +278,15 @@ const IndexPage = () => {
       }
     });
   }, [remoteAudioRefs]);
+
+  useEffect(() => {
+    remoteAudioRefs.forEach(({ ref }, userId) => {
+      if (ref.current) {
+        const volume = remoteVolumes.get(userId) || 1;
+        ref.current.volume = volume;
+      }
+    });
+  }, [remoteAudioRefs, remoteVolumes]);
 
   return (
     <div className="text-center">
@@ -307,15 +326,23 @@ const IndexPage = () => {
 
       <div className="mt-10">
         <audio ref={localAudioRef} autoPlay playsInline muted />
-        {Array.from(remoteAudioRefs).map(([streamId, remoteAudioRef]) => (
-          <audio
-            ref={remoteAudioRef.ref}
-            key={streamId}
-            autoPlay
-            playsInline
-            controls
-          />
-        ))}
+        {Array.from(remoteAudioRefs).map(([streamId, remoteAudioRef]) => {
+          return (
+            <div key={streamId}>
+              {/* <audio ref={remoteAudioRef.ref} autoPlay playsInline controls /> */}
+              <audio ref={remoteAudioRef.ref} autoPlay playsInline controls />
+              <input
+                className="w-32 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700"
+                type="range"
+                min="0"
+                max="1"
+                step="0.01"
+                defaultValue="1"
+                onChange={(e) => handleVolumeChange(streamId, e.target.value)}
+              />
+            </div>
+          );
+        })}
       </div>
     </div>
   );
