@@ -34,7 +34,21 @@ const IndexPage = () => {
       newRemoteAudioRefs.set(userId, {
         ref: React.createRef(),
         stream: remoteStream,
+        volume: 1,
       });
+      return newRemoteAudioRefs;
+    });
+  };
+  const handleVolumeChange = (userId: string, volume: number) => {
+    setRemoteAudioRefs((prevRemoteAudioRefs) => {
+      const newRemoteAudioRefs = new Map(prevRemoteAudioRefs);
+      const remoteAudioRef = newRemoteAudioRefs.get(userId);
+      if (remoteAudioRef) {
+        remoteAudioRef.volume = volume;
+        if (remoteAudioRef.ref.current) {
+          remoteAudioRef.ref.current.volume = volume;
+        }
+      }
       return newRemoteAudioRefs;
     });
   };
@@ -308,13 +322,25 @@ const IndexPage = () => {
       <div className="mt-10">
         <audio ref={localAudioRef} autoPlay playsInline muted />
         {Array.from(remoteAudioRefs).map(([streamId, remoteAudioRef]) => (
-          <audio
-            ref={remoteAudioRef.ref}
-            key={streamId}
-            autoPlay
-            playsInline
-            controls
-          />
+          <div key={streamId}>
+            <audio
+              ref={remoteAudioRef.ref}
+              key={streamId}
+              autoPlay
+              playsInline
+              controls
+            />
+            <input
+              type="range"
+              min="0"
+              max="1"
+              step="0.01"
+              value={remoteAudioRef.volume}
+              onChange={(e) =>
+                handleVolumeChange(streamId, parseFloat(e.target.value))
+              }
+            />
+          </div>
         ))}
       </div>
     </div>
