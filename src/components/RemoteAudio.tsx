@@ -1,6 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
 
-// クライアントサイドでのみ AudioContext を作成
 const audioContext = typeof window !== "undefined" ? new AudioContext() : null;
 
 interface RemoteAudioProps {
@@ -26,29 +25,31 @@ const RemoteAudio: React.FC<RemoteAudioProps> = ({
     if (!audioContext) return;
 
     const analyser = audioContext.createAnalyser();
-    const audioSource = audioContext.createMediaStreamSource(stream);
-    const destination = audioContext.createMediaStreamDestination();
-    gainNode.current = audioContext.createGain();
 
-    audioSource.connect(analyser);
-    analyser.connect(gainNode.current);
-    gainNode.current.connect(destination);
-
-    const bufferLength = analyser.frequencyBinCount;
-    const dataArray = new Uint8Array(bufferLength);
     analyser.smoothingTimeConstant = 0.3;
     analyser.fftSize = 2048;
+    const bufferLength = analyser.frequencyBinCount;
+    const dataArray = new Uint8Array(bufferLength);
+
+    const audioSource = audioContext.createMediaStreamSource(stream);
+    gainNode.current = audioContext.createGain();
+    audioSource.connect(analyser);
+    analyser.connect(gainNode.current);
+
+    const destination = audioContext.createMediaStreamDestination();
+    gainNode.current.connect(destination);
+
+    audioRef.current.srcObject = destination.stream;
 
     const updateAudioLevel = () => {
       analyser.getByteTimeDomainData(dataArray);
 
-      let sum = 0;
-      for (let i = 0; i < bufferLength; i++) {
-        const difference = dataArray[i] - 128;
-        sum += difference * difference;
-      }
+      const sum = dataArray.reduce((acc, value) => {
+        const difference = (value - 128) / 128;
+        return acc + difference * difference;
+      }, 0);
       const rms = Math.sqrt(sum / bufferLength);
-      const thresholds = [1, 2, 4, 5]; // 5段階の音量しきい値
+      const thresholds = [0.002, 0.005, 0.01, 0.02]; // 閾値
       const level = thresholds.findIndex((threshold) => rms < threshold);
       setTalkingLevel(level);
       requestAnimationFrame(updateAudioLevel);
@@ -57,11 +58,9 @@ const RemoteAudio: React.FC<RemoteAudioProps> = ({
     updateAudioLevel();
 
     return () => {
-      if (audioSource) audioSource.disconnect(analyser);
-      if (gainNode.current) {
-        analyser.disconnect(gainNode.current);
-        gainNode.current.disconnect(destination);
-      }
+      audioSource.disconnect();
+      analyser.disconnect();
+      gainNode.current?.disconnect();
     };
   }, [stream]);
 
@@ -75,8 +74,8 @@ const RemoteAudio: React.FC<RemoteAudioProps> = ({
   }, [stream]);
 
   useEffect(() => {
-    if (gainNode.current) {
-      gainNode.current.gain.value = volume;
+    if (audioRef.current) {
+      audioRef.current.volume = volume;
     }
   }, [volume]);
 
@@ -84,14 +83,24 @@ const RemoteAudio: React.FC<RemoteAudioProps> = ({
     onVolumeChange(userId, parseFloat(event.target.value));
   };
   const greenIntensity = Math.floor((255 / 4) * talkingLevel);
-  const textColor = `rgb(0, ${greenIntensity}, 0)`;
+  const alpha = talkingLevel > 0 ? 1 : 0.5;
+  const textColor = `rgba(0, ${greenIntensity}, 0, ${alpha})`;
 
   return (
     <div className="my-3">
       <audio ref={audioRef} playsInline />
-      <p className={"text-sm "} style={{ color: textColor }}>
-        {userId}
-      </p>
+      <div className="flex items-center justify-center mx-auto">
+        <p className={"text-sm "}>{userId}</p>
+        <div
+          className="rounded-full w-6 h-6 ml-3"
+          style={{
+            backgroundColor: textColor,
+            display: "inline-block",
+            marginRight: "0.5rem",
+            color: textColor,
+          }}
+        />
+      </div>
       <input
         id={`${userId}-volume`}
         type="range"
