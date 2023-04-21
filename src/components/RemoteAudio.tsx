@@ -54,7 +54,7 @@ const RemoteAudio: React.FC<RemoteAudioProps> = ({
           return acc + difference * difference;
         }, 0);
         const rms = Math.sqrt(sum / bufferLength);
-        const thresholds = [0.002, 0.005, 0.01, 0.02]; // 閾値
+        const thresholds = [0.007, 0.01, 0.02, 0.025]; // 閾値
         const level = thresholds.findIndex((threshold) => rms < threshold);
         setTalkingLevel(level);
         requestAnimationFrame(updateAudioLevel);
