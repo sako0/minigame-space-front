@@ -67,8 +67,10 @@ const RemoteAudio: React.FC<RemoteAudioProps> = ({
       audioRef.current.play().catch((error) => {
         console.error("Error playing audio:", error);
       });
+      // iOSの音量調整の問題を解決するために、`volume`属性を直接操作する
+      audioRef.current.volume = volume;
     }
-  }, [stream]);
+  }, [stream, volume]);
 
   useEffect(() => {
     if (audioRef.current) {
