@@ -1,3 +1,4 @@
+import useAudioLevelMonitor from "@/hooks/useAudioLevelMonitor";
 import React, { useEffect, useRef } from "react";
 
 interface RemoteAudioProps {
@@ -14,6 +15,8 @@ const RemoteAudio: React.FC<RemoteAudioProps> = ({
   onVolumeChange,
 }) => {
   const audioRef = useRef<HTMLAudioElement>(null);
+  // const audioLevel = useAudioLevelMonitor({ stream });
+  // console.log(audioLevel);
 
   useEffect(() => {
     if (audioRef.current) {
