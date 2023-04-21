@@ -22,6 +22,20 @@ const RemoteAudio: React.FC<RemoteAudioProps> = ({
   useEffect(() => {
     if (!stream) return;
     if (!audioRef.current) return;
+    if (!audioContext) return;
+
+    const audioSource = audioContext.createMediaStreamSource(stream);
+    gainNode.current = audioContext.createGain();
+    gainNode.current.gain.value = volume;
+    audioSource.connect(gainNode.current);
+
+    const destination = audioContext.createMediaStreamDestination();
+    gainNode.current.connect(destination);
+
+    audioRef.current.srcObject = destination.stream;
+    audioRef.current.play().catch((error) => {
+      console.error("Error playing audio:", error);
+    });
 
     if (audioContext) {
       const analyser = audioContext.createAnalyser();
@@ -30,19 +44,7 @@ const RemoteAudio: React.FC<RemoteAudioProps> = ({
       const bufferLength = analyser.frequencyBinCount;
       const dataArray = new Uint8Array(bufferLength);
 
-      const audioSource = audioContext.createMediaStreamSource(stream);
-      gainNode.current = audioContext.createGain();
-      gainNode.current.gain.value = volume;
       audioSource.connect(analyser);
-      analyser.connect(gainNode.current);
-
-      const destination = audioContext.createMediaStreamDestination();
-      gainNode.current.connect(destination);
-
-      audioRef.current.srcObject = destination.stream;
-      audioRef.current.play().catch((error) => {
-        console.error("Error playing audio:", error);
-      });
 
       const updateAudioLevel = () => {
         analyser.getByteTimeDomainData(dataArray);
@@ -65,32 +67,17 @@ const RemoteAudio: React.FC<RemoteAudioProps> = ({
         analyser.disconnect();
         gainNode.current?.disconnect();
       };
+    } else {
+      return () => {
+        audioSource.disconnect();
+        gainNode.current?.disconnect();
+      };
     }
   }, [stream, volume]);
 
   useEffect(() => {
-    if (!stream) return;
-    if (!audioRef.current) return;
-    if (audioContext) return;
-
-    audioRef.current.srcObject = stream;
-    audioRef.current.play().catch((error) => {
-      console.error("Error playing audio:", error);
-    });
-  }, [stream]);
-
-  useEffect(() => {
     if (gainNode.current) {
-      console.log("volume", volume);
-      console.log("gainNode.current.gain.value", gainNode.current.gain.value);
-
       gainNode.current.gain.value = volume;
-    }
-  }, [volume]);
-
-  useEffect(() => {
-    if (audioRef.current) {
-      console.log("audioRef.current.volume", audioRef.current.volume);
     }
   }, [volume]);
 
