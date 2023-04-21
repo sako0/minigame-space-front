@@ -14,6 +14,7 @@ const useAudioChat = (roomId: string, currentUserUid: string) => {
   >(new Map());
   const localAudioRef = useRef<HTMLAudioElement>(null);
   const peerConnectionRefs = useRef(new Map());
+  const [audioContext, setAudioContext] = useState<AudioContext | null>(null); // audioContextの状態を追加
 
   const createPeerConnection = useCallback(
     (userId: string, localStream: MediaStream, newSocket: WebSocket) => {
@@ -179,7 +180,11 @@ const useAudioChat = (roomId: string, currentUserUid: string) => {
 
   const joinRoom = useCallback(async () => {
     if (!roomId) return;
-
+    if (!audioContext) {
+      const newAudioContext = new AudioContext();
+      setAudioContext(newAudioContext);
+      await newAudioContext.resume();
+    }
     const localStream = await navigator.mediaDevices.getUserMedia({
       audio: true,
     });
@@ -202,7 +207,7 @@ const useAudioChat = (roomId: string, currentUserUid: string) => {
         JSON.stringify({ type: "join-room", roomId, userId: currentUserUid })
       );
     };
-  }, [roomId, handleMessage, currentUserUid]);
+  }, [roomId, audioContext, handleMessage, currentUserUid]);
 
   const leaveRoom = useCallback(() => {
     peerConnectionRefs.current.forEach((peerConnection) => {
@@ -259,6 +264,7 @@ const useAudioChat = (roomId: string, currentUserUid: string) => {
     leaveRoom,
     toggleMute,
     isMuted,
+    audioContext,
   };
 };
 

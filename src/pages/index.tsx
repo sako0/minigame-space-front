@@ -15,6 +15,7 @@ const IndexPage = () => {
     leaveRoom,
     toggleMute,
     isMuted,
+    audioContext,
   } = useAudioChat(roomId, currentUserUid);
 
   return (
@@ -62,6 +63,7 @@ const IndexPage = () => {
             stream={remoteAudioRef.stream}
             volume={remoteAudioRef.volume}
             onVolumeChange={handleVolumeChange}
+            audioContext={audioContext}
           />
         ))}
       </div>
