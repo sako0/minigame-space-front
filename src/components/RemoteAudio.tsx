@@ -83,8 +83,10 @@ const RemoteAudio: React.FC<RemoteAudioProps> = ({
   const handleVolumeChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     onVolumeChange(userId, parseFloat(event.target.value));
   };
+  // chrome用緑バー対応
   const greenIntensity = Math.floor((255 / 4) * talkingLevel);
-  const textColor = `rgb(0, ${greenIntensity}, 0)`;
+  const alpha = talkingLevel > 0 ? 1 : 0.5;
+  const textColor = `rgba(0, ${greenIntensity}, 0, ${alpha})`;
 
   return (
     <div className="my-3">
