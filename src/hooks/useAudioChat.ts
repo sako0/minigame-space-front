@@ -12,59 +12,52 @@ const useAudioChat = (roomId: string, currentUserUid: string) => {
   const [remoteAudioRefs, setRemoteAudioRefs] = useState<
     Map<string, RemoteAudioRef>
   >(new Map());
-  const localAudioRef: React.RefObject<HTMLAudioElement> =
-    useRef<HTMLAudioElement>(null);
+  const localAudioRef = useRef<HTMLAudioElement>(null);
   const peerConnectionRefs = useRef(new Map());
-
-  // ... 他の関数（onIceCandidate, onTrack, onConnectionStateChange, createPeerConnection, joinRoom, leaveRoom, toggleMute）をここに移動
-
-  const onIceCandidate = useCallback(
-    (event: any, userId: string, newSocket: WebSocket) => {
-      if (event.candidate) {
-        newSocket.send(
-          JSON.stringify({
-            type: "ice-candidate",
-            candidate: event.candidate,
-            userId: currentUserUid,
-            toUserId: userId,
-            roomId: roomId,
-          })
-        );
-      }
-    },
-    [currentUserUid, roomId]
-  );
-  const onTrack = (event: any, userId: string) => {
-    const remoteStream = event.streams[0];
-    setRemoteAudioRefs((prevRemoteAudioRefs) => {
-      const newRemoteAudioRefs = new Map(prevRemoteAudioRefs);
-      newRemoteAudioRefs.set(userId, {
-        ref: React.createRef(),
-        stream: remoteStream,
-        volume: 1,
-      });
-      return newRemoteAudioRefs;
-    });
-  };
-  const onConnectionStateChange = (
-    peerConnection: RTCPeerConnection,
-    userId: string
-  ) => {
-    if (
-      peerConnection.connectionState === "failed" ||
-      peerConnection.connectionState === "closed" ||
-      peerConnection.connectionState === "disconnected"
-    ) {
-      setRemoteAudioRefs((prevRemoteAudioRefs) => {
-        const newRemoteAudioRefs = new Map(prevRemoteAudioRefs);
-        newRemoteAudioRefs.delete(userId);
-        return newRemoteAudioRefs;
-      });
-    }
-  };
 
   const createPeerConnection = useCallback(
     (userId: string, localStream: MediaStream, newSocket: WebSocket) => {
+      const onIceCandidate = (event: any) => {
+        if (event.candidate) {
+          newSocket.send(
+            JSON.stringify({
+              type: "ice-candidate",
+              candidate: event.candidate,
+              userId: currentUserUid,
+              toUserId: userId,
+              roomId: roomId,
+            })
+          );
+        }
+      };
+
+      const onTrack = (event: any) => {
+        const remoteStream = event.streams[0];
+        setRemoteAudioRefs((prevRemoteAudioRefs) => {
+          const newRemoteAudioRefs = new Map(prevRemoteAudioRefs);
+          newRemoteAudioRefs.set(userId, {
+            ref: React.createRef(),
+            stream: remoteStream,
+            volume: 1,
+          });
+          return newRemoteAudioRefs;
+        });
+      };
+
+      const onConnectionStateChange = (peerConnection: RTCPeerConnection) => {
+        if (
+          peerConnection.connectionState === "failed" ||
+          peerConnection.connectionState === "closed" ||
+          peerConnection.connectionState === "disconnected"
+        ) {
+          setRemoteAudioRefs((prevRemoteAudioRefs) => {
+            const newRemoteAudioRefs = new Map(prevRemoteAudioRefs);
+            newRemoteAudioRefs.delete(userId);
+            return newRemoteAudioRefs;
+          });
+        }
+      };
+
       const peerConnection = new RTCPeerConnection({
         iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
       });
@@ -73,75 +66,30 @@ const useAudioChat = (roomId: string, currentUserUid: string) => {
         peerConnection.addTrack(track, localStream);
       });
 
-      peerConnection.onicecandidate = (event) =>
-        onIceCandidate(event, userId, newSocket);
-      peerConnection.ontrack = (event) => onTrack(event, userId);
+      peerConnection.onicecandidate = onIceCandidate;
+      peerConnection.ontrack = onTrack;
       peerConnection.onconnectionstatechange = () =>
-        onConnectionStateChange(peerConnection, userId);
+        onConnectionStateChange(peerConnection);
 
       return peerConnection;
     },
-    [onIceCandidate]
+    [currentUserUid, roomId]
   );
 
-  const joinRoom = useCallback(async () => {
-    if (!roomId) return;
-
-    const localStream = await navigator.mediaDevices.getUserMedia({
-      audio: true,
-    });
-    if (localAudioRef.current) {
-      localAudioRef.current.srcObject = localStream;
-    }
-    const ws =
-      process.env.NODE_ENV === "production"
-        ? `wss://api.mini-game-space.link/socket.io/`
-        : `ws://192.168.11.6:5500/socket.io/`;
-
-    const newSocket = new WebSocket(ws);
-    newSocket.onmessage = async (event) => {
+  const handleMessage = useCallback(
+    async (event: MessageEvent, newSocket: WebSocket) => {
       const data = JSON.parse(event.data);
       const { type, userId, toUserId, connectedUserIds } = data;
+      const localStream = localAudioRef.current?.srcObject as MediaStream;
 
       if (type === "client-joined") {
         const existingPeerConnection = peerConnectionRefs.current.get(userId);
         if (!existingPeerConnection) {
-          const newPeerConnection = new RTCPeerConnection({
-            iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
-          });
-
-          localStream.getTracks().forEach((track) => {
-            newPeerConnection.addTrack(track, localStream);
-          });
-
-          newPeerConnection.onicecandidate = (event) => {
-            if (event.candidate) {
-              newSocket.send(
-                JSON.stringify({
-                  type: "ice-candidate",
-                  candidate: event.candidate,
-                  userId: currentUserUid,
-                  toUserId: userId,
-                  roomId: roomId,
-                })
-              );
-            }
-          };
-
-          newPeerConnection.ontrack = (event) => {
-            console.log("ontrack event:", event);
-            const remoteStream = event.streams[0];
-            setRemoteAudioRefs((prevRemoteAudioRefs) => {
-              const newRemoteAudioRefs = new Map(prevRemoteAudioRefs);
-              newRemoteAudioRefs.set(userId, {
-                ref: React.createRef(),
-                stream: remoteStream,
-                volume: 1,
-              });
-              return newRemoteAudioRefs;
-            });
-          };
-
+          const newPeerConnection = createPeerConnection(
+            userId,
+            localStream,
+            newSocket
+          );
           peerConnectionRefs.current.set(userId, newPeerConnection);
         }
         const newUserIds = connectedUserIds.filter(
@@ -158,8 +106,8 @@ const useAudioChat = (roomId: string, currentUserUid: string) => {
                 localStream,
                 newSocket
               );
+              peerConnectionRefs.current.set(otherUserId, peerConnection);
             }
-            peerConnectionRefs.current.set(otherUserId, peerConnection);
 
             const offer = await peerConnection.createOffer();
             await peerConnection.setLocalDescription(offer);
@@ -225,15 +173,37 @@ const useAudioChat = (roomId: string, currentUserUid: string) => {
           await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
         }
       }
-    };
+    },
+    [roomId, currentUserUid, createPeerConnection]
+  );
+
+  const joinRoom = useCallback(async () => {
+    if (!roomId) return;
+
+    const localStream = await navigator.mediaDevices.getUserMedia({
+      audio: true,
+    });
+
+    if (localAudioRef.current) {
+      localAudioRef.current.srcObject = localStream;
+    }
+    const ws =
+      process.env.NODE_ENV === "production"
+        ? `wss://api.mini-game-space.link/socket.io/`
+        : `ws://192.168.11.6:5500/socket.io/`;
+
+    const newSocket = new WebSocket(ws);
+
+    newSocket.onmessage = (event: MessageEvent) =>
+      handleMessage(event, newSocket);
 
     newSocket.onopen = () => {
       newSocket.send(
         JSON.stringify({ type: "join-room", roomId, userId: currentUserUid })
       );
     };
-  }, [roomId, currentUserUid, createPeerConnection]);
-  // Leave Room 機能を追加するために、新しい useCallback 関数を作成します。
+  }, [roomId, handleMessage, currentUserUid]);
+
   const leaveRoom = useCallback(() => {
     peerConnectionRefs.current.forEach((peerConnection) => {
       peerConnection.close();
@@ -242,7 +212,6 @@ const useAudioChat = (roomId: string, currentUserUid: string) => {
     setRemoteAudioRefs(new Map());
   }, []);
 
-  // Mute 機能を追加するために、新しい useCallback 関数を作成します。
   const toggleMute = useCallback(() => {
     if (localAudioRef.current) {
       const localStream = localAudioRef.current.srcObject;
