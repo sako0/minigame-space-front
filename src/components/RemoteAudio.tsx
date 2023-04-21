@@ -83,8 +83,8 @@ const RemoteAudio: React.FC<RemoteAudioProps> = ({
   const textColor = `rgb(0, ${greenIntensity}, 0)`;
 
   return (
-    <div>
-      <audio ref={audioRef} />
+    <div className="my-3">
+      <audio ref={audioRef} playsInline controls />
       <p className={"text-sm "} style={{ color: textColor }}>
         {userId}
       </p>
