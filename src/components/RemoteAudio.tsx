@@ -22,60 +22,75 @@ const RemoteAudio: React.FC<RemoteAudioProps> = ({
   useEffect(() => {
     if (!stream) return;
     if (!audioRef.current) return;
-    if (!audioContext) return;
 
-    const analyser = audioContext.createAnalyser();
+    if (audioContext) {
+      const analyser = audioContext.createAnalyser();
+      analyser.smoothingTimeConstant = 0.3;
+      analyser.fftSize = 2048;
+      const bufferLength = analyser.frequencyBinCount;
+      const dataArray = new Uint8Array(bufferLength);
 
-    analyser.smoothingTimeConstant = 0.3;
-    analyser.fftSize = 2048;
-    const bufferLength = analyser.frequencyBinCount;
-    const dataArray = new Uint8Array(bufferLength);
+      const audioSource = audioContext.createMediaStreamSource(stream);
+      gainNode.current = audioContext.createGain();
+      gainNode.current.gain.value = volume;
+      audioSource.connect(analyser);
+      analyser.connect(gainNode.current);
 
-    const audioSource = audioContext.createMediaStreamSource(stream);
-    gainNode.current = audioContext.createGain();
-    audioSource.connect(analyser);
-    analyser.connect(gainNode.current);
+      const destination = audioContext.createMediaStreamDestination();
+      gainNode.current.connect(destination);
 
-    const destination = audioContext.createMediaStreamDestination();
-    gainNode.current.connect(destination);
-
-    audioRef.current.srcObject = destination.stream;
-
-    const updateAudioLevel = () => {
-      analyser.getByteTimeDomainData(dataArray);
-
-      const sum = dataArray.reduce((acc, value) => {
-        const difference = (value - 128) / 128;
-        return acc + difference * difference;
-      }, 0);
-      const rms = Math.sqrt(sum / bufferLength);
-      const thresholds = [0.002, 0.005, 0.01, 0.02]; // 閾値
-      const level = thresholds.findIndex((threshold) => rms < threshold);
-      setTalkingLevel(level);
-      requestAnimationFrame(updateAudioLevel);
-    };
-
-    updateAudioLevel();
-
-    return () => {
-      audioSource.disconnect();
-      analyser.disconnect();
-      gainNode.current?.disconnect();
-    };
-  }, [stream]);
-
-  useEffect(() => {
-    if (audioRef.current) {
-      audioRef.current.srcObject = stream;
+      audioRef.current.srcObject = destination.stream;
       audioRef.current.play().catch((error) => {
         console.error("Error playing audio:", error);
       });
+
+      const updateAudioLevel = () => {
+        analyser.getByteTimeDomainData(dataArray);
+
+        const sum = dataArray.reduce((acc, value) => {
+          const difference = (value - 128) / 128;
+          return acc + difference * difference;
+        }, 0);
+        const rms = Math.sqrt(sum / bufferLength);
+        const thresholds = [0.002, 0.005, 0.01, 0.02]; // 閾値
+        const level = thresholds.findIndex((threshold) => rms < threshold);
+        setTalkingLevel(level);
+        requestAnimationFrame(updateAudioLevel);
+      };
+
+      updateAudioLevel();
+
+      return () => {
+        audioSource.disconnect();
+        analyser.disconnect();
+        gainNode.current?.disconnect();
+      };
     }
+  }, [stream, volume]);
+
+  useEffect(() => {
+    if (!stream) return;
+    if (!audioRef.current) return;
+    if (audioContext) return;
+
+    audioRef.current.srcObject = stream;
+    audioRef.current.play().catch((error) => {
+      console.error("Error playing audio:", error);
+    });
   }, [stream]);
 
   useEffect(() => {
+    if (gainNode.current) {
+      console.log("volume", volume);
+      console.log("gainNode.current.gain.value", gainNode.current.gain.value);
+
+      gainNode.current.gain.value = volume;
+    }
+  }, [volume]);
+
+  useEffect(() => {
     if (audioRef.current) {
-      audioRef.current.volume = volume;
+      console.log("audioRef.current.volume", audioRef.current.volume);
     }
   }, [volume]);
 
