@@ -1,23 +1,24 @@
 import React, { useEffect, useRef, useState } from "react";
 
-const audioContext = typeof window !== "undefined" ? new AudioContext() : null;
-
-interface RemoteAudioProps {
+type RemoteAudioProps = {
   userId: string;
   stream: MediaStream;
   volume: number;
   onVolumeChange: (userId: string, volume: number) => void;
-}
+  audioContext: AudioContext | null;
+};
 
 const RemoteAudio: React.FC<RemoteAudioProps> = ({
   userId,
   stream,
   volume,
   onVolumeChange,
+  audioContext,
 }) => {
   const audioRef = useRef<HTMLAudioElement>(null);
   const gainNode = useRef<GainNode | null>(null);
   const [talkingLevel, setTalkingLevel] = useState(0);
+  const [isPlaying, setIsPlaying] = useState(false); // 追加
 
   useEffect(() => {
     if (!stream) return;
@@ -31,49 +32,51 @@ const RemoteAudio: React.FC<RemoteAudioProps> = ({
 
     const destination = audioContext.createMediaStreamDestination();
     gainNode.current.connect(destination);
+    const onCanPlay = async () => {
+      if (isPlaying) return; // 追加
+      try {
+        await audioRef.current?.play();
+        setIsPlaying(true); // 追加
+      } catch (error) {
+        console.error("Error playing audio:", error);
+      }
+    };
+    audioRef.current.addEventListener("canplay", onCanPlay);
 
-    audioRef.current.srcObject = destination.stream;
-    audioRef.current.play().catch((error) => {
-      console.error("Error playing audio:", error);
-    });
-
-    if (audioContext) {
-      const analyser = audioContext.createAnalyser();
-      analyser.smoothingTimeConstant = 0.3;
-      analyser.fftSize = 2048;
-      const bufferLength = analyser.frequencyBinCount;
-      const dataArray = new Uint8Array(bufferLength);
-
-      audioSource.connect(analyser);
-
-      const updateAudioLevel = () => {
-        analyser.getByteTimeDomainData(dataArray);
-
-        const sum = dataArray.reduce((acc, value) => {
-          const difference = (value - 128) / 128;
-          return acc + difference * difference;
-        }, 0);
-        const rms = Math.sqrt(sum / bufferLength);
-        const thresholds = [0.007, 0.01, 0.02, 0.025]; // 閾値
-        const level = thresholds.findIndex((threshold) => rms < threshold);
-        setTalkingLevel(level);
-        requestAnimationFrame(updateAudioLevel);
-      };
-
-      updateAudioLevel();
-
-      return () => {
-        audioSource.disconnect();
-        analyser.disconnect();
-        gainNode.current?.disconnect();
-      };
-    } else {
-      return () => {
-        audioSource.disconnect();
-        gainNode.current?.disconnect();
-      };
+    if (audioRef.current.srcObject !== destination.stream) {
+      audioRef.current.srcObject = destination.stream;
     }
-  }, [stream, volume]);
+
+    const analyser = audioContext.createAnalyser();
+    analyser.smoothingTimeConstant = 0.3;
+    analyser.fftSize = 2048;
+    const bufferLength = analyser.frequencyBinCount;
+    const dataArray = new Uint8Array(bufferLength);
+
+    audioSource.connect(analyser);
+
+    const updateAudioLevel = () => {
+      analyser.getByteTimeDomainData(dataArray);
+
+      const sum = dataArray.reduce((acc, value) => {
+        const difference = (value - 128) / 128;
+        return acc + difference * difference;
+      }, 0);
+      const rms = Math.sqrt(sum / bufferLength);
+      const thresholds = [0.007, 0.01, 0.02, 0.025]; // 閾値
+      const level = thresholds.findIndex((threshold) => rms < threshold);
+      setTalkingLevel(level);
+      requestAnimationFrame(updateAudioLevel);
+    };
+
+    updateAudioLevel();
+
+    return () => {
+      audioSource.disconnect();
+      analyser.disconnect();
+      gainNode.current?.disconnect();
+    };
+  }, [audioContext, isPlaying, stream, volume]);
 
   useEffect(() => {
     if (gainNode.current) {
