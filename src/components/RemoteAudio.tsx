@@ -17,6 +17,7 @@ const RemoteAudio: React.FC<RemoteAudioProps> = ({
   onVolumeChange,
 }) => {
   const audioRef = useRef<HTMLAudioElement>(null);
+  const gainNode = useRef<GainNode | null>(null);
   const [talkingLevel, setTalkingLevel] = useState(0);
 
   useEffect(() => {
@@ -27,10 +28,11 @@ const RemoteAudio: React.FC<RemoteAudioProps> = ({
     const analyser = audioContext.createAnalyser();
     const audioSource = audioContext.createMediaStreamSource(stream);
     const destination = audioContext.createMediaStreamDestination();
+    gainNode.current = audioContext.createGain();
 
     audioSource.connect(analyser);
-    analyser.connect(destination);
-    audioRef.current.srcObject = destination.stream;
+    analyser.connect(gainNode.current);
+    gainNode.current.connect(destination);
 
     const bufferLength = analyser.frequencyBinCount;
     const dataArray = new Uint8Array(bufferLength);
@@ -56,8 +58,10 @@ const RemoteAudio: React.FC<RemoteAudioProps> = ({
 
     return () => {
       if (audioSource) audioSource.disconnect(analyser);
-      if (analyser) analyser.disconnect(destination);
-      if (destination) destination.disconnect();
+      if (gainNode.current) {
+        analyser.disconnect(gainNode.current);
+        gainNode.current.disconnect(destination);
+      }
     };
   }, [stream]);
 
@@ -71,8 +75,8 @@ const RemoteAudio: React.FC<RemoteAudioProps> = ({
   }, [stream]);
 
   useEffect(() => {
-    if (audioRef.current) {
-      audioRef.current.volume = volume;
+    if (gainNode.current) {
+      gainNode.current.gain.value = volume;
     }
   }, [volume]);
 
