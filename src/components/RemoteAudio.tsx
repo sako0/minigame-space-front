@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 
 type RemoteAudioProps = {
   userId: string;
@@ -20,31 +20,24 @@ const RemoteAudio: React.FC<RemoteAudioProps> = ({
   const [talkingLevel, setTalkingLevel] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false); // 追加
 
+  const playAudio = useCallback(async () => {
+    if (!audioRef.current) return;
+    if (isPlaying) return; // 追加
+    audioRef.current.play().then(() => {
+      setIsPlaying(true); // 追加
+    });
+  }, [isPlaying]);
+
   useEffect(() => {
     if (!stream) return;
     if (!audioRef.current) return;
     if (!audioContext) return;
 
     const audioSource = audioContext.createMediaStreamSource(stream);
-    gainNode.current = audioContext.createGain();
-    gainNode.current.gain.value = volume;
-    audioSource.connect(gainNode.current);
 
-    const destination = audioContext.createMediaStreamDestination();
-    gainNode.current.connect(destination);
-    const onCanPlay = async () => {
-      if (isPlaying) return; // 追加
-      try {
-        await audioRef.current?.play();
-        setIsPlaying(true); // 追加
-      } catch (error) {
-        console.error("Error playing audio:", error);
-      }
-    };
-    audioRef.current.addEventListener("canplay", onCanPlay);
-
-    if (audioRef.current.srcObject !== destination.stream) {
-      audioRef.current.srcObject = destination.stream;
+    audioRef.current.addEventListener("canplay", playAudio);
+    if (audioRef.current.srcObject !== stream) {
+      audioRef.current.srcObject = stream;
     }
 
     const analyser = audioContext.createAnalyser();
@@ -74,13 +67,18 @@ const RemoteAudio: React.FC<RemoteAudioProps> = ({
     return () => {
       audioSource.disconnect();
       analyser.disconnect();
-      gainNode.current?.disconnect();
     };
-  }, [audioContext, isPlaying, stream, volume]);
+  }, [audioContext, isPlaying, playAudio, stream, volume]);
 
   useEffect(() => {
-    if (gainNode.current) {
-      gainNode.current.gain.value = volume;
+    if (audioContext) {
+      audioContext.resume(); // chromeの場合はここでresumeしないと音が出ない
+    }
+  }, [audioContext]);
+
+  useEffect(() => {
+    if (audioRef.current) {
+      audioRef.current.volume = volume;
     }
   }, [volume]);
 
@@ -93,7 +91,7 @@ const RemoteAudio: React.FC<RemoteAudioProps> = ({
 
   return (
     <div className="my-3">
-      <audio ref={audioRef} playsInline />
+      <audio ref={audioRef} playsInline autoPlay controls />
       <div className="flex items-center justify-center mx-auto">
         <p className={"text-sm "}>{userId}</p>
         <div
