@@ -87,20 +87,22 @@ const RemoteAudio: React.FC<RemoteAudioProps> = ({
   };
   const greenIntensity = Math.floor((255 / 4) * talkingLevel);
   const alpha = talkingLevel > 0 ? 1 : 0.5;
-  const textColor = `rgba(0, ${greenIntensity}, 0, ${alpha})`;
+  const textColor =
+    talkingLevel > 0
+      ? `rgba(0, ${greenIntensity}, 0, 1)`
+      : "rgba(128, 128, 128, 0.5)";
 
   return (
     <div className="my-3">
-      <audio ref={audioRef} playsInline autoPlay controls />
+      <audio ref={audioRef} playsInline autoPlay />
       <div className="flex items-center justify-center mx-auto">
-        <p className={"text-sm "}>{userId}</p>
+        <p className={"text-sm text-black"}>{userId}</p>
         <div
           className="rounded-full w-6 h-6 ml-3"
           style={{
             backgroundColor: textColor,
             display: "inline-block",
             marginRight: "0.5rem",
-            color: textColor,
           }}
         />
       </div>
