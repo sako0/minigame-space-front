@@ -194,8 +194,8 @@ const useAudioChat = (roomId: string, currentUserUid: string) => {
     }
     const ws =
       process.env.NODE_ENV === "production"
-        ? `wss://api.mini-game-space.link/socket.io/`
-        : `ws://192.168.11.6:5500/socket.io/`;
+        ? `wss://api.mini-game-space.link/signaling`
+        : `ws://192.168.11.6:5500/signaling`;
 
     const newSocket = new WebSocket(ws);
 
