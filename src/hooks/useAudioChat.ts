@@ -210,7 +210,24 @@ const useAudioChat = (roomId: string, currentUserUid: string) => {
   }, [roomId, audioContext, handleMessage, currentUserUid]);
 
   const leaveRoom = useCallback(() => {
+    // ローカルのAudio要素のsrcObjectをnullに設定し再生を停止
+    if (localAudioRef.current) {
+      const localStream = localAudioRef.current.srcObject as MediaStream;
+      if (localStream) {
+        localStream.getAudioTracks().forEach((track) => {
+          track.stop();
+        });
+      }
+      localAudioRef.current.srcObject = null;
+    }
+
+    // リモートとのコネクションを全て閉じる
     peerConnectionRefs.current.forEach((peerConnection) => {
+      // すべてのリモートストリームを削除する
+      peerConnection.getSenders().forEach((sender: any) => {
+        peerConnection.removeTrack(sender);
+      });
+      // RTCPeerConnectionを閉じる
       peerConnection.close();
     });
     peerConnectionRefs.current.clear();

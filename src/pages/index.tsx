@@ -5,7 +5,8 @@ import RemoteAudio from "../components/RemoteAudio";
 
 const IndexPage = () => {
   const [roomId, setRoomId] = useState("");
-  const currentUserUid = uuidv4();
+  const uid = uuidv4();
+  const [currentUserUid, setCurrentUserUid] = useState(uid);
 
   const {
     localAudioRef,
