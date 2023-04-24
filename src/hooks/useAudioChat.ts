@@ -12,6 +12,7 @@ const useAudioChat = (roomId: string, currentUserUid: string) => {
   const [remoteAudioRefs, setRemoteAudioRefs] = useState<
     Map<string, RemoteAudioRef>
   >(new Map());
+
   const localAudioRef = useRef<HTMLAudioElement>(null);
   const peerConnectionRefs = useRef(new Map());
   const [audioContext, setAudioContext] = useState<AudioContext | null>(null); // audioContextの状態を追加
