@@ -15,13 +15,16 @@ const useAudioChat = (roomId: string, currentUserUid: string) => {
 
   const localAudioRef = useRef<HTMLAudioElement>(null);
   const peerConnectionRefs = useRef(new Map());
+  const socketRef = useRef<WebSocket | null>(null);
+
   const [audioContext, setAudioContext] = useState<AudioContext | null>(null); // audioContextの状態を追加
 
   const createPeerConnection = useCallback(
-    (userId: string, localStream: MediaStream, newSocket: WebSocket) => {
+    (userId: string, localStream: MediaStream) => {
+      if (!socketRef.current) return;
       const onIceCandidate = (event: any) => {
-        if (event.candidate) {
-          newSocket.send(
+        if (event.candidate && socketRef.current) {
+          socketRef.current.send(
             JSON.stringify({
               type: "ice-candidate",
               candidate: event.candidate,
@@ -79,7 +82,9 @@ const useAudioChat = (roomId: string, currentUserUid: string) => {
   );
 
   const handleMessage = useCallback(
-    async (event: MessageEvent, newSocket: WebSocket) => {
+    async (event: MessageEvent) => {
+      if (!socketRef.current) return;
+
       const data = JSON.parse(event.data);
       const { type, userId, toUserId, connectedUserIds } = data;
       const localStream = localAudioRef.current?.srcObject as MediaStream;
@@ -87,11 +92,7 @@ const useAudioChat = (roomId: string, currentUserUid: string) => {
       if (type === "client-joined") {
         const existingPeerConnection = peerConnectionRefs.current.get(userId);
         if (!existingPeerConnection) {
-          const newPeerConnection = createPeerConnection(
-            userId,
-            localStream,
-            newSocket
-          );
+          const newPeerConnection = createPeerConnection(userId, localStream);
           peerConnectionRefs.current.set(userId, newPeerConnection);
         }
         const newUserIds = connectedUserIds.filter(
@@ -103,25 +104,23 @@ const useAudioChat = (roomId: string, currentUserUid: string) => {
             let peerConnection = peerConnectionRefs.current.get(otherUserId);
 
             if (!peerConnection) {
-              peerConnection = createPeerConnection(
-                otherUserId,
-                localStream,
-                newSocket
-              );
+              peerConnection = createPeerConnection(otherUserId, localStream);
               peerConnectionRefs.current.set(otherUserId, peerConnection);
             }
 
             const offer = await peerConnection.createOffer();
             await peerConnection.setLocalDescription(offer);
-            newSocket.send(
-              JSON.stringify({
-                type: "offer",
-                sdp: offer.sdp,
-                userId: currentUserUid,
-                toUserId: otherUserId,
-                roomId: roomId,
-              })
-            );
+            if (socketRef.current) {
+              socketRef.current.send(
+                JSON.stringify({
+                  type: "offer",
+                  sdp: offer.sdp,
+                  userId: currentUserUid,
+                  toUserId: otherUserId,
+                  roomId: roomId,
+                })
+              );
+            }
           })
         );
       } else if (
@@ -134,7 +133,7 @@ const useAudioChat = (roomId: string, currentUserUid: string) => {
         let peerConnection = peerConnectionRefs.current.get(userId);
 
         if (!peerConnection) {
-          peerConnection = createPeerConnection(userId, localStream, newSocket);
+          peerConnection = createPeerConnection(userId, localStream);
           peerConnectionRefs.current.set(userId, peerConnection);
         }
         if (peerConnection) {
@@ -144,7 +143,7 @@ const useAudioChat = (roomId: string, currentUserUid: string) => {
           const answer = await peerConnection.createAnswer();
           console.log("Created answer:", answer);
           await peerConnection.setLocalDescription(answer);
-          newSocket.send(
+          socketRef.current.send(
             JSON.stringify({
               type: "answer",
               sdp: answer.sdp,
@@ -174,13 +173,43 @@ const useAudioChat = (roomId: string, currentUserUid: string) => {
         if (peerConnection) {
           await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
         }
+      } else if (type === "leave-room" && currentUserUid !== userId) {
+        const peerConnection = peerConnectionRefs.current.get(userId);
+
+        if (peerConnection) {
+          // イベントリスナーを削除
+          peerConnection.onicecandidate = null;
+          peerConnection.ontrack = null;
+          peerConnection.onconnectionstatechange = null;
+
+          // すべてのリモートストリームを削除する
+          if (peerConnection.signalingState !== "closed") {
+            peerConnection.getSenders().forEach((sender: any) => {
+              peerConnection.removeTrack(sender);
+            });
+          }
+
+          // RTCPeerConnection を閉じる
+          peerConnection.close();
+        }
+
+        // RTCPeerConnection を参照から削除
+        peerConnectionRefs.current.delete(userId);
+
+        // RemoteAudioRef を削除
+        setRemoteAudioRefs((prevRemoteAudioRefs) => {
+          const newRemoteAudioRefs = new Map(prevRemoteAudioRefs);
+          newRemoteAudioRefs.delete(userId);
+          return newRemoteAudioRefs;
+        });
       }
     },
-    [roomId, currentUserUid, createPeerConnection]
+    [socketRef, currentUserUid, createPeerConnection, roomId]
   );
 
   const joinRoom = useCallback(async () => {
     if (!roomId) return;
+
     if (!audioContext) {
       const newAudioContext = new AudioContext();
       setAudioContext(newAudioContext);
@@ -189,41 +218,71 @@ const useAudioChat = (roomId: string, currentUserUid: string) => {
     const localStream = await navigator.mediaDevices.getUserMedia({
       audio: true,
     });
+    if (!localAudioRef.current) return;
 
-    if (localAudioRef.current) {
-      localAudioRef.current.srcObject = localStream;
-    }
+    localAudioRef.current.srcObject = localStream;
+
     const ws =
       process.env.NODE_ENV === "production"
         ? `wss://api.mini-game-space.link/signaling`
         : `ws://192.168.11.6:5500/signaling`;
 
     const newSocket = new WebSocket(ws);
-
-    newSocket.onmessage = (event: MessageEvent) =>
-      handleMessage(event, newSocket);
-
-    newSocket.onopen = () => {
-      newSocket.send(
-        JSON.stringify({ type: "join-room", roomId, userId: currentUserUid })
-      );
-    };
+    socketRef.current = newSocket;
+    peerConnectionRefs.current.clear();
+    if (socketRef.current) {
+      socketRef.current.onopen = () => {
+        if (!socketRef.current) return;
+        socketRef.current.send(
+          JSON.stringify({
+            type: "join-room",
+            roomId,
+            userId: currentUserUid,
+          })
+        );
+      };
+      socketRef.current.onmessage = (event: MessageEvent) => {
+        handleMessage(event);
+      };
+      socketRef.current.onerror = (error) => {
+        console.error("WebSocket error:", error);
+      };
+    }
   }, [roomId, audioContext, handleMessage, currentUserUid]);
 
   const leaveRoom = useCallback(() => {
+    if (socketRef.current) {
+      socketRef.current.send(
+        JSON.stringify({
+          type: "leave-room",
+          userId: currentUserUid,
+          roomId,
+        })
+      );
+    }
+
+    remoteAudioRefs.forEach(({ ref }) => {
+      if (ref.current) {
+        ref.current.srcObject = null;
+      }
+    });
     // ローカルのAudio要素のsrcObjectをnullに設定し再生を停止
     if (localAudioRef.current) {
-      const localStream = localAudioRef.current.srcObject as MediaStream;
-      if (localStream) {
+      const localStream = localAudioRef.current.srcObject;
+      if (localStream instanceof MediaStream) {
         localStream.getAudioTracks().forEach((track) => {
           track.stop();
         });
+        localAudioRef.current.srcObject = null;
       }
-      localAudioRef.current.srcObject = null;
     }
 
     // リモートとのコネクションを全て閉じる
     peerConnectionRefs.current.forEach((peerConnection) => {
+      // イベントリスナーを削除
+      peerConnection.onicecandidate = null;
+      peerConnection.ontrack = null;
+      peerConnection.onconnectionstatechange = null;
       // すべてのリモートストリームを削除する
       peerConnection.getSenders().forEach((sender: any) => {
         peerConnection.removeTrack(sender);
@@ -232,8 +291,21 @@ const useAudioChat = (roomId: string, currentUserUid: string) => {
       peerConnection.close();
     });
     peerConnectionRefs.current.clear();
+
     setRemoteAudioRefs(new Map());
-  }, []);
+    // WebSocket接続を閉じていく
+    if (socketRef.current) {
+      // WebSocketのイベントリスナーを削除
+      socketRef.current.onmessage = null;
+      socketRef.current.onopen = null;
+      socketRef.current.onerror = null;
+      socketRef.current.onclose = null;
+      // WebSocket接続を閉じる
+      const socket = socketRef.current;
+      socketRef.current = null;
+      socket.close();
+    }
+  }, [remoteAudioRefs, socketRef]);
 
   const toggleMute = useCallback(() => {
     if (localAudioRef.current) {
@@ -268,7 +340,7 @@ const useAudioChat = (roomId: string, currentUserUid: string) => {
 
   useEffect(() => {
     remoteAudioRefs.forEach(({ ref, stream }) => {
-      if (ref.current) {
+      if (ref.current && ref.current.srcObject !== stream) {
         ref.current.srcObject = stream;
       }
     });
