@@ -305,7 +305,7 @@ const useAudioChat = (roomId: string, currentUserUid: string) => {
       socketRef.current = null;
       socket.close();
     }
-  }, [remoteAudioRefs, socketRef]);
+  }, [currentUserUid, remoteAudioRefs, roomId]);
 
   const toggleMute = useCallback(() => {
     if (localAudioRef.current) {
@@ -319,7 +319,7 @@ const useAudioChat = (roomId: string, currentUserUid: string) => {
     }
   }, []);
 
-  const handleVolumeChange = (userId: string, volume: number) => {
+  const handleVolumeChange = useCallback((userId: string, volume: number) => {
     setRemoteAudioRefs((prevRemoteAudioRefs) => {
       const updatedRemoteAudioRefs = new Map(prevRemoteAudioRefs);
       const audioInfo = updatedRemoteAudioRefs.get(userId);
@@ -332,10 +332,6 @@ const useAudioChat = (roomId: string, currentUserUid: string) => {
       }
       return updatedRemoteAudioRefs;
     });
-  };
-
-  useEffect(() => {
-    setIsMuted(false);
   }, []);
 
   useEffect(() => {
