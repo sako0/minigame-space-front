@@ -5,6 +5,7 @@ import RemoteAudio from "../components/RemoteAudio";
 
 const IndexPage = () => {
   const [roomId, setRoomId] = useState("");
+  const [userId, setUserId] = useState("");
   const uid = uuidv4();
   const [currentUserUid] = useState(uid);
 
@@ -17,17 +18,24 @@ const IndexPage = () => {
     toggleMute,
     isMuted,
     audioContext,
-  } = useAudioChat(roomId, currentUserUid);
+  } = useAudioChat(roomId, userId);
 
   return (
     <div className="text-center">
       <div>
         <input
           className="bg-gray-200 rounded-md shadow-lg m-2 p-2 text-black"
-          placeholder="1"
+          placeholder="ルームID"
           type="text"
           value={roomId}
           onChange={(e) => setRoomId(e.target.value)}
+        />
+        <input
+          className="bg-gray-200 rounded-md shadow-lg m-2 p-2 text-black"
+          placeholder="ユーザーID"
+          type="text"
+          value={userId}
+          onChange={(e) => setUserId(e.target.value)}
         />
         <button
           className="bg-lime-500 rounded-md shadow-lg m-2 p-2"
