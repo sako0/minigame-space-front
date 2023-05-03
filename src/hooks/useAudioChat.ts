@@ -187,8 +187,10 @@ const useAudioChat = (roomId: number, currentUserUid: string) => {
         if (peerConnection) {
           await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
         }
-      } else if (type === "leave-room" && currentUserUid !== toFirebaseUid) {
-        const peerConnection = peerConnectionRefs.current.get(toFirebaseUid);
+      } else if (type === "leave-room" && currentUserUid !== fromFirebaseUid) {
+        console.log(fromFirebaseUid, "が退出しました。");
+
+        const peerConnection = peerConnectionRefs.current.get(fromFirebaseUid);
 
         if (peerConnection) {
           // イベントリスナーを削除
@@ -208,12 +210,12 @@ const useAudioChat = (roomId: number, currentUserUid: string) => {
         }
 
         // RTCPeerConnection を参照から削除
-        peerConnectionRefs.current.delete(toFirebaseUid);
+        peerConnectionRefs.current.delete(fromFirebaseUid);
 
         // RemoteAudioRef を削除
         setRemoteAudioRefs((prevRemoteAudioRefs) => {
           const newRemoteAudioRefs = new Map(prevRemoteAudioRefs);
-          newRemoteAudioRefs.delete(String(toFirebaseUid));
+          newRemoteAudioRefs.delete(fromFirebaseUid);
           return newRemoteAudioRefs;
         });
       }
@@ -269,7 +271,7 @@ const useAudioChat = (roomId: number, currentUserUid: string) => {
       socketRef.current.send(
         JSON.stringify({
           type: "leave-room",
-          userId: currentUserUid,
+          fromFirebaseUid: currentUserUid,
           roomId,
         })
       );
