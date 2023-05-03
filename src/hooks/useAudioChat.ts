@@ -7,7 +7,17 @@ type RemoteAudioRef = {
   volume: number;
 };
 
-const useAudioChat = (roomId: string, currentUserUid: string) => {
+type Message = {
+  type: string;
+  fromFirebaseUid: string;
+  toFirebaseUid: string;
+  roomId: number;
+  connectedUserIds: string[];
+  sdp: any;
+  candidate: RTCIceCandidate;
+};
+
+const useAudioChat = (roomId: number, currentUserUid: string) => {
   const [isMuted, setIsMuted] = useState(false);
   const [remoteAudioRefs, setRemoteAudioRefs] = useState<
     Map<string, RemoteAudioRef>
@@ -20,7 +30,7 @@ const useAudioChat = (roomId: string, currentUserUid: string) => {
   const [audioContext, setAudioContext] = useState<AudioContext | null>(null); // audioContextの状態を追加
 
   const createPeerConnection = useCallback(
-    (userId: string, localStream: MediaStream) => {
+    (toFirebaseUid: string, localStream: MediaStream) => {
       if (!socketRef.current) return;
       const onIceCandidate = (event: any) => {
         if (event.candidate && socketRef.current) {
@@ -28,8 +38,8 @@ const useAudioChat = (roomId: string, currentUserUid: string) => {
             JSON.stringify({
               type: "ice-candidate",
               candidate: event.candidate,
-              userId: currentUserUid,
-              toUserId: userId,
+              fromFirebaseUid: currentUserUid,
+              toFirebaseUid: toFirebaseUid,
               roomId: roomId,
             })
           );
@@ -40,7 +50,7 @@ const useAudioChat = (roomId: string, currentUserUid: string) => {
         const remoteStream = event.streams[0];
         setRemoteAudioRefs((prevRemoteAudioRefs) => {
           const newRemoteAudioRefs = new Map(prevRemoteAudioRefs);
-          newRemoteAudioRefs.set(userId, {
+          newRemoteAudioRefs.set(toFirebaseUid, {
             ref: React.createRef(),
             stream: remoteStream,
             volume: 1,
@@ -57,7 +67,7 @@ const useAudioChat = (roomId: string, currentUserUid: string) => {
         ) {
           setRemoteAudioRefs((prevRemoteAudioRefs) => {
             const newRemoteAudioRefs = new Map(prevRemoteAudioRefs);
-            newRemoteAudioRefs.delete(userId);
+            newRemoteAudioRefs.delete(toFirebaseUid);
             return newRemoteAudioRefs;
           });
         }
@@ -85,15 +95,19 @@ const useAudioChat = (roomId: string, currentUserUid: string) => {
     async (event: MessageEvent) => {
       if (!socketRef.current) return;
 
-      const data = JSON.parse(event.data);
-      const { type, userId, toUserId, connectedUserIds } = data;
+      const data: Message = JSON.parse(event.data);
+      const { type, fromFirebaseUid, toFirebaseUid, connectedUserIds } = data;
       const localStream = localAudioRef.current?.srcObject as MediaStream;
 
       if (type === "client-joined") {
-        const existingPeerConnection = peerConnectionRefs.current.get(userId);
+        const existingPeerConnection =
+          peerConnectionRefs.current.get(fromFirebaseUid);
         if (!existingPeerConnection) {
-          const newPeerConnection = createPeerConnection(userId, localStream);
-          peerConnectionRefs.current.set(userId, newPeerConnection);
+          const newPeerConnection = createPeerConnection(
+            toFirebaseUid,
+            localStream
+          );
+          peerConnectionRefs.current.set(toFirebaseUid, newPeerConnection);
         }
         const newUserIds = connectedUserIds.filter(
           (id: string) =>
@@ -115,8 +129,8 @@ const useAudioChat = (roomId: string, currentUserUid: string) => {
                 JSON.stringify({
                   type: "offer",
                   sdp: offer.sdp,
-                  userId: currentUserUid,
-                  toUserId: otherUserId,
+                  fromFirebaseUid: currentUserUid,
+                  toFirebaseUid: otherUserId,
                   roomId: roomId,
                 })
               );
@@ -125,16 +139,16 @@ const useAudioChat = (roomId: string, currentUserUid: string) => {
         );
       } else if (
         type === "offer" &&
-        currentUserUid !== userId &&
-        currentUserUid === toUserId
+        currentUserUid !== fromFirebaseUid &&
+        currentUserUid === toFirebaseUid
       ) {
         const { sdp } = data;
 
-        let peerConnection = peerConnectionRefs.current.get(userId);
+        let peerConnection = peerConnectionRefs.current.get(fromFirebaseUid);
 
         if (!peerConnection) {
-          peerConnection = createPeerConnection(userId, localStream);
-          peerConnectionRefs.current.set(userId, peerConnection);
+          peerConnection = createPeerConnection(fromFirebaseUid, localStream);
+          peerConnectionRefs.current.set(fromFirebaseUid, peerConnection);
         }
         if (peerConnection) {
           await peerConnection.setRemoteDescription(
@@ -147,15 +161,15 @@ const useAudioChat = (roomId: string, currentUserUid: string) => {
             JSON.stringify({
               type: "answer",
               sdp: answer.sdp,
-              userId: currentUserUid,
-              toUserId: userId,
+              fromFirebaseUid: currentUserUid,
+              toFirebaseUid: fromFirebaseUid,
               roomId: roomId,
             })
           );
         }
       } else if (type === "answer") {
-        const { sdp, userId } = data;
-        const peerConnection = peerConnectionRefs.current.get(userId);
+        const { sdp, fromFirebaseUid } = data;
+        const peerConnection = peerConnectionRefs.current.get(fromFirebaseUid);
 
         if (peerConnection) {
           await peerConnection.setRemoteDescription(
@@ -164,17 +178,17 @@ const useAudioChat = (roomId: string, currentUserUid: string) => {
         }
       } else if (
         type === "ice-candidate" &&
-        peerConnectionRefs.current.has(userId) &&
-        currentUserUid === toUserId
+        peerConnectionRefs.current.has(fromFirebaseUid) &&
+        currentUserUid !== fromFirebaseUid
       ) {
         const { candidate } = data;
-        const peerConnection = peerConnectionRefs.current.get(userId);
+        const peerConnection = peerConnectionRefs.current.get(fromFirebaseUid);
 
         if (peerConnection) {
           await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
         }
-      } else if (type === "leave-room" && currentUserUid !== userId) {
-        const peerConnection = peerConnectionRefs.current.get(userId);
+      } else if (type === "leave-room" && currentUserUid !== toFirebaseUid) {
+        const peerConnection = peerConnectionRefs.current.get(toFirebaseUid);
 
         if (peerConnection) {
           // イベントリスナーを削除
@@ -194,12 +208,12 @@ const useAudioChat = (roomId: string, currentUserUid: string) => {
         }
 
         // RTCPeerConnection を参照から削除
-        peerConnectionRefs.current.delete(userId);
+        peerConnectionRefs.current.delete(toFirebaseUid);
 
         // RemoteAudioRef を削除
         setRemoteAudioRefs((prevRemoteAudioRefs) => {
           const newRemoteAudioRefs = new Map(prevRemoteAudioRefs);
-          newRemoteAudioRefs.delete(userId);
+          newRemoteAudioRefs.delete(String(toFirebaseUid));
           return newRemoteAudioRefs;
         });
       }
@@ -237,7 +251,7 @@ const useAudioChat = (roomId: string, currentUserUid: string) => {
           JSON.stringify({
             type: "join-room",
             roomId,
-            userId: currentUserUid,
+            fromFirebaseUid: currentUserUid,
           })
         );
       };
