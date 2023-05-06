@@ -4,7 +4,7 @@ import useAudioChat from "../hooks/useAudioChat";
 import RemoteAudio from "../components/RemoteAudio";
 
 const IndexPage = () => {
-  const [roomId, setRoomId] = useState<number>(1);
+  const [roomId, setRoomId] = useState<number>();
   const [userId, setUserId] = useState<number>();
   const uid = uuidv4();
   const [currentUserUid] = useState(uid);
@@ -18,7 +18,7 @@ const IndexPage = () => {
     toggleMute,
     isMuted,
     audioContext,
-  } = useAudioChat(roomId, userId ?? 0);
+  } = useAudioChat(roomId ?? 0, userId ?? 0);
 
   return (
     <div className="text-center">
@@ -26,16 +26,15 @@ const IndexPage = () => {
         <input
           className="bg-gray-200 rounded-md shadow-lg m-2 p-2 text-black w-12"
           placeholder="ルームID"
-          type="number"
-          value={roomId}
-          disabled
+          type="text"
+          value={roomId === 0 ? "" : roomId}
           onChange={(e) => setRoomId(Number(e.target.value))}
         />
         <input
           className="bg-gray-200 rounded-md shadow-lg m-2 p-2 text-black"
           placeholder="ユーザーID"
           type="text"
-          value={userId}
+          value={userId === 0 ? "" : userId}
           onChange={(e) => setUserId(Number(e.target.value))}
         />
         <button
