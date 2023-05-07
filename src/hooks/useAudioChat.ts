@@ -1,6 +1,13 @@
 import React from "react";
 import { useState, useRef, useCallback, useEffect } from "react";
-import { useWebSocket } from "./useWebSocket";
+
+type UseAudioChatProps = {
+  roomId: number;
+  currentUserUid: number;
+  socket: React.MutableRefObject<WebSocket | null>;
+  connectWebSocket: () => void;
+  disconnectWebSocket: () => void;
+};
 
 type RemoteAudioRef = {
   ref: React.RefObject<HTMLAudioElement>;
@@ -18,7 +25,14 @@ type Message = {
   candidate: RTCIceCandidate;
 };
 
-const useAudioChat = (roomId: number, currentUserUid: number) => {
+const useAudioChat = (props: UseAudioChatProps) => {
+  const {
+    roomId,
+    currentUserUid,
+    socket,
+    connectWebSocket,
+    disconnectWebSocket,
+  } = props;
   const [isMuted, setIsMuted] = useState(false);
   const [remoteAudioRefs, setRemoteAudioRefs] = useState<
     Map<string, RemoteAudioRef>
@@ -28,11 +42,6 @@ const useAudioChat = (roomId: number, currentUserUid: number) => {
   const peerConnectionRefs = useRef(new Map());
 
   const [audioContext, setAudioContext] = useState<AudioContext | null>(null); // audioContextの状態を追加
-  const url =
-    process.env.NODE_ENV === "production"
-      ? `wss://api.mini-game-space.link/signaling`
-      : `ws://192.168.11.6:5500/signaling`;
-  const { socket, connectWebSocket, disconnectWebSocket } = useWebSocket(url);
 
   const createPeerConnection = useCallback(
     (toUserID: number, localStream: MediaStream) => {

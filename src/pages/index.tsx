@@ -2,12 +2,18 @@ import React, { useState } from "react";
 import { v4 as uuidv4 } from "uuid";
 import useAudioChat from "../hooks/useAudioChat";
 import RemoteAudio from "../components/RemoteAudio";
+import { useWebSocket } from "@/hooks/useWebSocket";
 
 const IndexPage = () => {
   const [roomId, setRoomId] = useState<number>();
   const [userId, setUserId] = useState<number>();
-  const uid = uuidv4();
-  const [currentUserUid] = useState(uid);
+  // const uid = uuidv4();
+  // const [currentUserUid] = useState(uid);
+  const url =
+    process.env.NODE_ENV === "production"
+      ? `wss://api.mini-game-space.link/signaling`
+      : `ws://192.168.11.6:5500/signaling`;
+  const { socket, connectWebSocket, disconnectWebSocket } = useWebSocket(url);
 
   const {
     localAudioRef,
@@ -18,7 +24,13 @@ const IndexPage = () => {
     toggleMute,
     isMuted,
     audioContext,
-  } = useAudioChat(roomId ?? 0, userId ?? 0);
+  } = useAudioChat({
+    roomId: roomId ?? 0,
+    currentUserUid: userId ?? 0,
+    socket,
+    connectWebSocket,
+    disconnectWebSocket,
+  });
 
   return (
     <div className="text-center">
