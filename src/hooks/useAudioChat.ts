@@ -32,7 +32,7 @@ const useAudioChat = (roomId: number, currentUserUid: number) => {
     process.env.NODE_ENV === "production"
       ? `wss://api.mini-game-space.link/signaling`
       : `ws://192.168.11.6:5500/signaling`;
-  const { socket, connectWebSocket } = useWebSocket(url);
+  const { socket, connectWebSocket, disconnectWebSocket } = useWebSocket(url);
 
   const createPeerConnection = useCallback(
     (toUserID: number, localStream: MediaStream) => {
@@ -317,17 +317,8 @@ const useAudioChat = (roomId: number, currentUserUid: number) => {
 
     setRemoteAudioRefs(new Map());
     // WebSocket接続を閉じていく
-    if (socket.current) {
-      // WebSocketのイベントリスナーを削除
-      socket.current.onmessage = null;
-      socket.current.onopen = null;
-      socket.current.onerror = null;
-      socket.current.onclose = null;
-      // WebSocket接続を閉じる
-      socket.current.close();
-      socket.current = null;
-    }
-  }, [currentUserUid, remoteAudioRefs, roomId, socket]);
+    disconnectWebSocket();
+  }, [currentUserUid, disconnectWebSocket, remoteAudioRefs, roomId, socket]);
 
   const toggleMute = useCallback(() => {
     if (localAudioRef.current) {

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useRef } from "react";
 
 export const useWebSocket = (url: string) => {
   const socket = useRef<WebSocket | null>(null);
@@ -6,6 +6,18 @@ export const useWebSocket = (url: string) => {
   const connectWebSocket = () => {
     socket.current = new WebSocket(url);
   };
+  const disconnectWebSocket = () => {
+    if (socket.current) {
+      // WebSocketのイベントリスナーを削除
+      socket.current.onmessage = null;
+      socket.current.onopen = null;
+      socket.current.onerror = null;
+      socket.current.onclose = null;
+      // WebSocket接続を閉じる
+      socket.current.close();
+      socket.current = null;
+    }
+  };
 
-  return { socket, connectWebSocket };
+  return { socket, connectWebSocket, disconnectWebSocket };
 };
