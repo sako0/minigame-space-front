@@ -1,5 +1,6 @@
 import React from "react";
 import { useState, useRef, useCallback, useEffect } from "react";
+import { useWebSocket } from "./useWebSocket";
 
 type RemoteAudioRef = {
   ref: React.RefObject<HTMLAudioElement>;
@@ -25,16 +26,20 @@ const useAudioChat = (roomId: number, currentUserUid: number) => {
 
   const localAudioRef = useRef<HTMLAudioElement>(null);
   const peerConnectionRefs = useRef(new Map());
-  const socketRef = useRef<WebSocket | null>(null);
 
   const [audioContext, setAudioContext] = useState<AudioContext | null>(null); // audioContextの状態を追加
+  const url =
+    process.env.NODE_ENV === "production"
+      ? `wss://api.mini-game-space.link/signaling`
+      : `ws://192.168.11.6:5500/signaling`;
+  const { socket, connectWebSocket, disconnectWebSocket } = useWebSocket(url);
 
   const createPeerConnection = useCallback(
     (toUserID: number, localStream: MediaStream) => {
-      if (!socketRef.current) return;
+      if (!socket.current) return;
       const onIceCandidate = (event: any) => {
-        if (event.candidate && socketRef.current) {
-          socketRef.current.send(
+        if (event.candidate && socket.current) {
+          socket.current.send(
             JSON.stringify({
               type: "ice-candidate",
               candidate: event.candidate,
@@ -88,12 +93,12 @@ const useAudioChat = (roomId: number, currentUserUid: number) => {
 
       return peerConnection;
     },
-    [currentUserUid, roomId]
+    [currentUserUid, roomId, socket]
   );
 
   const handleMessage = useCallback(
     async (event: MessageEvent) => {
-      if (!socketRef.current) return;
+      if (!socket.current) return;
 
       const data: Message = JSON.parse(event.data);
       const { type, fromUserID, toUserID, connectedUserIds } = data;
@@ -125,8 +130,8 @@ const useAudioChat = (roomId: number, currentUserUid: number) => {
 
             const offer = await peerConnection.createOffer();
             await peerConnection.setLocalDescription(offer);
-            if (socketRef.current) {
-              socketRef.current.send(
+            if (socket.current) {
+              socket.current.send(
                 JSON.stringify({
                   type: "offer",
                   sdp: offer.sdp,
@@ -158,7 +163,7 @@ const useAudioChat = (roomId: number, currentUserUid: number) => {
           const answer = await peerConnection.createAnswer();
           console.log("Created answer:", answer);
           await peerConnection.setLocalDescription(answer);
-          socketRef.current.send(
+          socket.current.send(
             JSON.stringify({
               type: "answer",
               sdp: answer.sdp,
@@ -221,7 +226,7 @@ const useAudioChat = (roomId: number, currentUserUid: number) => {
         });
       }
     },
-    [socketRef, currentUserUid, createPeerConnection, roomId]
+    [socket, currentUserUid, createPeerConnection, roomId]
   );
 
   const joinRoom = useCallback(async () => {
@@ -239,18 +244,12 @@ const useAudioChat = (roomId: number, currentUserUid: number) => {
 
     localAudioRef.current.srcObject = localStream;
 
-    const ws =
-      process.env.NODE_ENV === "production"
-        ? `wss://api.mini-game-space.link/signaling`
-        : `ws://192.168.11.6:5500/signaling`;
-
-    const newSocket = new WebSocket(ws);
-    socketRef.current = newSocket;
     peerConnectionRefs.current.clear();
-    if (socketRef.current) {
-      socketRef.current.onopen = () => {
-        if (!socketRef.current) return;
-        socketRef.current.send(
+    connectWebSocket();
+    if (socket.current) {
+      socket.current.onopen = () => {
+        if (!socket.current) return;
+        socket.current.send(
           JSON.stringify({
             type: "join-room",
             roomId,
@@ -258,18 +257,25 @@ const useAudioChat = (roomId: number, currentUserUid: number) => {
           })
         );
       };
-      socketRef.current.onmessage = (event: MessageEvent) => {
+      socket.current.onmessage = (event: MessageEvent) => {
         handleMessage(event);
       };
-      socketRef.current.onerror = (error) => {
+      socket.current.onerror = (error) => {
         console.error("WebSocket error:", error);
       };
     }
-  }, [roomId, audioContext, handleMessage, currentUserUid]);
+  }, [
+    roomId,
+    audioContext,
+    connectWebSocket,
+    socket,
+    currentUserUid,
+    handleMessage,
+  ]);
 
   const leaveRoom = useCallback(() => {
-    if (socketRef.current) {
-      socketRef.current.send(
+    if (socket.current) {
+      socket.current.send(
         JSON.stringify({
           type: "leave-room",
           fromUserID: currentUserUid,
@@ -311,18 +317,8 @@ const useAudioChat = (roomId: number, currentUserUid: number) => {
 
     setRemoteAudioRefs(new Map());
     // WebSocket接続を閉じていく
-    if (socketRef.current) {
-      // WebSocketのイベントリスナーを削除
-      socketRef.current.onmessage = null;
-      socketRef.current.onopen = null;
-      socketRef.current.onerror = null;
-      socketRef.current.onclose = null;
-      // WebSocket接続を閉じる
-      const socket = socketRef.current;
-      socketRef.current = null;
-      socket.close();
-    }
-  }, [currentUserUid, remoteAudioRefs, roomId]);
+    disconnectWebSocket();
+  }, [currentUserUid, disconnectWebSocket, remoteAudioRefs, roomId, socket]);
 
   const toggleMute = useCallback(() => {
     if (localAudioRef.current) {
