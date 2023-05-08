@@ -14,7 +14,7 @@ const Area = () => {
   const { socket, connectWebSocket, disconnectWebSocket } = useWebSocket(url);
 
   const { joinArea, leaveArea } = useArea({
-    areaId: Number(id),
+    areaID: Number(id),
     fromUserID: userId ?? 0,
     socket,
     connectWebSocket,

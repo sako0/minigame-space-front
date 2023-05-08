@@ -2,7 +2,7 @@ import React from "react";
 import { useState, useRef, useCallback, useEffect } from "react";
 
 type UseAudioChatProps = {
-  roomId: number;
+  roomID: number;
   currentUserUid: number;
   socket: React.MutableRefObject<WebSocket | null>;
   connectWebSocket: () => void;
@@ -19,7 +19,7 @@ type Message = {
   type: string;
   fromUserID: number;
   toUserID: number;
-  roomId: number;
+  roomID: number;
   connectedUserIds: number[];
   sdp: any;
   candidate: RTCIceCandidate;
@@ -27,7 +27,7 @@ type Message = {
 
 const useAudioChat = (props: UseAudioChatProps) => {
   const {
-    roomId,
+    roomID,
     currentUserUid,
     socket,
     connectWebSocket,
@@ -54,7 +54,7 @@ const useAudioChat = (props: UseAudioChatProps) => {
               candidate: event.candidate,
               fromUserID: currentUserUid,
               toUserID: toUserID,
-              roomId: roomId,
+              roomID: roomID,
             })
           );
         }
@@ -102,7 +102,7 @@ const useAudioChat = (props: UseAudioChatProps) => {
 
       return peerConnection;
     },
-    [currentUserUid, roomId, socket]
+    [currentUserUid, roomID, socket]
   );
 
   const handleMessage = useCallback(
@@ -146,7 +146,7 @@ const useAudioChat = (props: UseAudioChatProps) => {
                   sdp: offer.sdp,
                   fromUserID: currentUserUid,
                   toUserID: otherUserId,
-                  roomId: roomId,
+                  roomID: roomID,
                 })
               );
             }
@@ -178,7 +178,7 @@ const useAudioChat = (props: UseAudioChatProps) => {
               sdp: answer.sdp,
               fromUserID: currentUserUid,
               toUserID: fromUserID,
-              roomId: roomId,
+              roomID: roomID,
             })
           );
         }
@@ -235,11 +235,11 @@ const useAudioChat = (props: UseAudioChatProps) => {
         });
       }
     },
-    [socket, currentUserUid, createPeerConnection, roomId]
+    [socket, currentUserUid, createPeerConnection, roomID]
   );
 
   const joinRoom = useCallback(async () => {
-    if (!roomId) return;
+    if (!roomID) return;
 
     if (!audioContext) {
       const newAudioContext = new AudioContext();
@@ -261,7 +261,7 @@ const useAudioChat = (props: UseAudioChatProps) => {
         socket.current.send(
           JSON.stringify({
             type: "join-room",
-            roomId,
+            roomID,
             fromUserID: currentUserUid,
           })
         );
@@ -274,7 +274,7 @@ const useAudioChat = (props: UseAudioChatProps) => {
       };
     }
   }, [
-    roomId,
+    roomID,
     audioContext,
     connectWebSocket,
     socket,
@@ -288,7 +288,7 @@ const useAudioChat = (props: UseAudioChatProps) => {
         JSON.stringify({
           type: "leave-room",
           fromUserID: currentUserUid,
-          roomId,
+          roomID,
         })
       );
     }
@@ -327,7 +327,7 @@ const useAudioChat = (props: UseAudioChatProps) => {
     setRemoteAudioRefs(new Map());
     // WebSocket接続を閉じていく
     disconnectWebSocket();
-  }, [currentUserUid, disconnectWebSocket, remoteAudioRefs, roomId, socket]);
+  }, [currentUserUid, disconnectWebSocket, remoteAudioRefs, roomID, socket]);
 
   const toggleMute = useCallback(() => {
     if (localAudioRef.current) {

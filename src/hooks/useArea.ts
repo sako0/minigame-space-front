@@ -1,7 +1,7 @@
 import { useState, useEffect, MutableRefObject, useCallback } from "react";
 
 type UseAreaProps = {
-  areaId: number;
+  areaID: number;
   fromUserID: number;
   socket: MutableRefObject<WebSocket | null>;
   connectWebSocket: () => void;
@@ -9,7 +9,7 @@ type UseAreaProps = {
 };
 
 export const useArea = (props: UseAreaProps) => {
-  const { areaId, fromUserID, socket, connectWebSocket, disconnectWebSocket } =
+  const { areaID, fromUserID, socket, connectWebSocket, disconnectWebSocket } =
     props;
 
   const joinArea = useCallback(() => {
@@ -20,7 +20,7 @@ export const useArea = (props: UseAreaProps) => {
         socket.current.send(
           JSON.stringify({
             type: "join-area",
-            areaId: areaId,
+            areaID: areaID,
             fromUserID: fromUserID,
           })
         );
@@ -30,20 +30,20 @@ export const useArea = (props: UseAreaProps) => {
         console.error("WebSocket error:", error);
       };
     }
-  }, [areaId, fromUserID, socket, connectWebSocket]);
+  }, [areaID, fromUserID, socket, connectWebSocket]);
 
   const leaveArea = useCallback(() => {
     if (socket.current) {
       socket.current.send(
         JSON.stringify({
           type: "leave-area",
-          areaId: areaId,
+          areaID: areaID,
           fromUserID: fromUserID,
         })
       );
       disconnectWebSocket();
     }
-  }, [areaId, fromUserID, socket, disconnectWebSocket]);
+  }, [areaID, fromUserID, socket, disconnectWebSocket]);
 
   return { joinArea, leaveArea };
 };
