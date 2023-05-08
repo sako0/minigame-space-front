@@ -7,6 +7,16 @@ type UseMoveProps = {
   connectWebSocket: () => void;
 };
 
+type Message = {
+  type: string;
+  fromUserID: number;
+  toUserID: number;
+  roomID: number;
+  connectedUserIds: number[];
+  xAxis: number;
+  yAxis: number;
+};
+
 export const useMove = (props: UseMoveProps) => {
   const { areaID, fromUserID, socket, connectWebSocket } = props;
   const [xAxis, setXAxis] = useState(0);
@@ -27,7 +37,13 @@ export const useMove = (props: UseMoveProps) => {
           })
         );
       };
-
+      socket.current.onmessage = (event) => {
+        const data: Message = JSON.parse(event.data);
+        const { type, fromUserID, toUserID, xAxis, yAxis } = data;
+        if (type === "move") {
+          console.log("move", data);
+        }
+      };
       socket.current.onerror = (error) => {
         console.error("WebSocket error:", error);
       };

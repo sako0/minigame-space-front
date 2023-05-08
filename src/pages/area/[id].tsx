@@ -103,7 +103,7 @@ const Area = () => {
                 move();
               }}
             >
-              Move用のwebsocket
+              MoveSocket OPEN
             </button>
             <button
               className="bg-blue-500 rounded-md shadow-lg m-2 p-2"
