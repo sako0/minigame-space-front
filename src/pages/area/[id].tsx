@@ -6,7 +6,7 @@ import { useState } from "react";
 const Area = () => {
   const router = useRouter();
   const { id } = router.query;
-  const [userId, setUserId] = useState<number>();
+  const [userId, setUserId] = useState<number>(0);
   const url =
     process.env.NODE_ENV === "production"
       ? `wss://api.mini-game-space.link/signaling`
