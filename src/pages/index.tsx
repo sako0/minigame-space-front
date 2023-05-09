@@ -5,7 +5,7 @@ import RemoteAudio from "../components/RemoteAudio";
 import { useWebSocket } from "@/hooks/useWebSocket";
 
 const IndexPage = () => {
-  const [roomId, setRoomId] = useState<number>();
+  const [roomID, setRoomId] = useState<number>();
   const [userId, setUserId] = useState<number>();
   // const uid = uuidv4();
   // const [currentUserUid] = useState(uid);
@@ -25,7 +25,7 @@ const IndexPage = () => {
     isMuted,
     audioContext,
   } = useAudioChat({
-    roomId: roomId ?? 0,
+    roomID: roomID ?? 0,
     currentUserUid: userId ?? 0,
     socket,
     connectWebSocket,
@@ -39,7 +39,7 @@ const IndexPage = () => {
           className="bg-gray-200 rounded-md shadow-lg m-2 p-2 text-black w-12"
           placeholder="ルームID"
           type="text"
-          value={roomId === 0 ? "" : roomId}
+          value={roomID === 0 ? "" : roomID}
           onChange={(e) => setRoomId(Number(e.target.value))}
         />
         <input
