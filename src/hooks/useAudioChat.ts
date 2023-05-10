@@ -139,7 +139,10 @@ const useAudioChat = (props: UseAudioChatProps) => {
 
             const offer = await peerConnection.createOffer();
             await peerConnection.setLocalDescription(offer);
-            if (socket.current) {
+            if (
+              socket.current &&
+              socket.current.readyState === WebSocket.OPEN
+            ) {
               socket.current.send(
                 JSON.stringify({
                   type: "offer",
@@ -172,18 +175,21 @@ const useAudioChat = (props: UseAudioChatProps) => {
           const answer = await peerConnection.createAnswer();
           console.log("Created answer:", answer);
           await peerConnection.setLocalDescription(answer);
-          socket.current.send(
-            JSON.stringify({
-              type: "answer",
-              sdp: answer.sdp,
-              fromUserID: currentUserUid,
-              toUserID: fromUserID,
-              roomID: roomID,
-            })
-          );
+          if (socket.current && socket.current.readyState === WebSocket.OPEN) {
+            socket.current.send(
+              JSON.stringify({
+                type: "answer",
+                sdp: answer.sdp,
+                fromUserID: currentUserUid,
+                toUserID: fromUserID,
+                roomID: roomID,
+              })
+            );
+          }
         }
       } else if (type === "answer") {
-        const { sdp, fromUserID } = data;
+        const { sdp, fromUserID, toUserID } = data;
+        if (toUserID !== currentUserUid) return;
         const peerConnection = peerConnectionRefs.current.get(fromUserID);
 
         if (peerConnection) {
@@ -257,14 +263,15 @@ const useAudioChat = (props: UseAudioChatProps) => {
     connectWebSocket();
     if (socket.current) {
       socket.current.onopen = () => {
-        if (!socket.current) return;
-        socket.current.send(
-          JSON.stringify({
-            type: "join-room",
-            roomID,
-            fromUserID: currentUserUid,
-          })
-        );
+        if (socket.current && socket.current.readyState === WebSocket.OPEN) {
+          socket.current.send(
+            JSON.stringify({
+              type: "join-room",
+              roomID,
+              fromUserID: currentUserUid,
+            })
+          );
+        }
       };
       socket.current.onmessage = (event: MessageEvent) => {
         handleMessage(event);
@@ -283,7 +290,7 @@ const useAudioChat = (props: UseAudioChatProps) => {
   ]);
 
   const leaveRoom = useCallback(() => {
-    if (socket.current) {
+    if (socket.current && socket.current.readyState === WebSocket.OPEN) {
       socket.current.send(
         JSON.stringify({
           type: "leave-room",
