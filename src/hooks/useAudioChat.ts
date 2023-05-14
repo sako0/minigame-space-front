@@ -244,54 +244,6 @@ const useAudioChat = (props: UseAudioChatProps) => {
     [socket, currentUserUid, createPeerConnection, roomID]
   );
 
-  const joinRoom = useCallback(async () => {
-    if (!roomID) return;
-
-    if (!audioContext) {
-      const newAudioContext = new AudioContext();
-      setAudioContext(newAudioContext);
-      await newAudioContext.resume();
-    }
-    const localStream = await navigator.mediaDevices.getUserMedia({
-      audio: true,
-    });
-    if (!localAudioRef.current) return;
-
-    localAudioRef.current.srcObject = localStream;
-
-    peerConnectionRefs.current.clear();
-    connectWebSocket();
-    if (socket.current) {
-      socket.current.onopen = () => {
-        if (socket.current && socket.current.readyState === WebSocket.OPEN) {
-          socket.current.send(
-            JSON.stringify({
-              type: "join-room",
-              roomID,
-              fromUserID: currentUserUid,
-            })
-          );
-        }
-      };
-      socket.current.onmessage = (event: MessageEvent) => {
-        handleMessage(event);
-      };
-      socket.current.onerror = (error) => {
-        console.error("WebSocket error:", error);
-      };
-      socket.current.onclose = (event) => {
-        console.log("WebSocket closed:", event);
-      };
-    }
-  }, [
-    roomID,
-    audioContext,
-    connectWebSocket,
-    socket,
-    currentUserUid,
-    handleMessage,
-  ]);
-
   const leaveRoom = useCallback(() => {
     if (socket.current && socket.current.readyState === WebSocket.OPEN) {
       socket.current.send(
@@ -327,7 +279,9 @@ const useAudioChat = (props: UseAudioChatProps) => {
       peerConnection.onconnectionstatechange = null;
       // すべてのリモートストリームを削除する
       peerConnection.getSenders().forEach((sender: any) => {
-        peerConnection.removeTrack(sender);
+        if (peerConnection && peerConnection.signalingState !== "closed") {
+          peerConnection.removeTrack(sender);
+        }
       });
       // RTCPeerConnectionを閉じる
       peerConnection.close();
@@ -338,6 +292,59 @@ const useAudioChat = (props: UseAudioChatProps) => {
     // WebSocket接続を閉じていく
     disconnectWebSocket();
   }, [currentUserUid, disconnectWebSocket, remoteAudioRefs, roomID, socket]);
+
+  const joinRoom = useCallback(async () => {
+    if (!roomID) return;
+
+    if (!audioContext) {
+      const newAudioContext = new AudioContext();
+      setAudioContext(newAudioContext);
+      await newAudioContext.resume();
+    }
+    const localStream = await navigator.mediaDevices.getUserMedia({
+      audio: true,
+    });
+    if (!localAudioRef.current) return;
+
+    localAudioRef.current.srcObject = localStream;
+
+    peerConnectionRefs.current.clear();
+    connectWebSocket();
+    if (socket.current) {
+      socket.current.onopen = () => {
+        if (socket.current && socket.current.readyState === WebSocket.OPEN) {
+          socket.current.send(
+            JSON.stringify({
+              type: "join-room",
+              roomID,
+              fromUserID: currentUserUid,
+            })
+          );
+        } else {
+          leaveRoom();
+        }
+      };
+      socket.current.onmessage = (event: MessageEvent) => {
+        handleMessage(event);
+      };
+      socket.current.onerror = (error) => {
+        leaveRoom();
+        console.error("WebSocket error:", error);
+      };
+      socket.current.onclose = (event) => {
+        leaveRoom();
+        console.log("WebSocket closed:", event);
+      };
+    }
+  }, [
+    roomID,
+    audioContext,
+    connectWebSocket,
+    socket,
+    currentUserUid,
+    leaveRoom,
+    handleMessage,
+  ]);
 
   const toggleMute = useCallback(() => {
     if (localAudioRef.current) {
