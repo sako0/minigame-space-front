@@ -2,7 +2,7 @@ import { useArea } from "@/hooks/useArea";
 import { useMove } from "@/hooks/useMove";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import { useRouter } from "next/router";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 const Area = () => {
   const router = useRouter();
@@ -11,8 +11,8 @@ const Area = () => {
   const [isJoined, setIsJoined] = useState<boolean>(false);
   const url =
     process.env.NODE_ENV === "production"
-      ? `wss://api.mini-game-space.link/signaling`
-      : `ws://192.168.11.6:5500/signaling`;
+      ? `wss://api.mini-game-space.link/ws`
+      : `ws://192.168.11.6:5500/ws`;
   const { socket, connectWebSocket, disconnectWebSocket } = useWebSocket(url);
 
   const { joinArea, leaveArea } = useArea({
