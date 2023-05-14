@@ -279,6 +279,9 @@ const useAudioChat = (props: UseAudioChatProps) => {
       socket.current.onerror = (error) => {
         console.error("WebSocket error:", error);
       };
+      socket.current.onclose = (event) => {
+        console.log("WebSocket closed:", event);
+      };
     }
   }, [
     roomID,
