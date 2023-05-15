@@ -60,17 +60,19 @@ const useAudioChat = (props: UseAudioChatProps) => {
         }
       };
 
-      const onTrack = (event: any) => {
-        const remoteStream = event.streams[0];
-        setRemoteAudioRefs((prevRemoteAudioRefs) => {
-          const newRemoteAudioRefs = new Map(prevRemoteAudioRefs);
-          newRemoteAudioRefs.set(String(toUserID), {
-            ref: React.createRef(),
-            stream: remoteStream,
-            volume: 1,
+      const onTrack = (event: RTCTrackEvent) => {
+        if (event.streams && event.streams[0]) {
+          const remoteStream = event.streams[0];
+          setRemoteAudioRefs((prevRemoteAudioRefs) => {
+            const newRemoteAudioRefs = new Map(prevRemoteAudioRefs);
+            newRemoteAudioRefs.set(String(toUserID), {
+              ref: React.createRef(),
+              stream: remoteStream,
+              volume: 1,
+            });
+            return newRemoteAudioRefs;
           });
-          return newRemoteAudioRefs;
-        });
+        }
       };
 
       const onConnectionStateChange = (peerConnection: RTCPeerConnection) => {
@@ -320,10 +322,6 @@ const useAudioChat = (props: UseAudioChatProps) => {
               fromUserID: currentUserUid,
             })
           );
-        } else {
-          setTimeout(() => {
-            joinRoom();
-          }, 5000);
         }
       };
       socket.current.onmessage = (event: MessageEvent) => {
@@ -336,9 +334,6 @@ const useAudioChat = (props: UseAudioChatProps) => {
         console.error("WebSocket error:", error);
       };
       socket.current.onclose = (event) => {
-        setTimeout(() => {
-          joinRoom();
-        }, 5000);
         console.log("WebSocket closed:", event);
       };
     }
