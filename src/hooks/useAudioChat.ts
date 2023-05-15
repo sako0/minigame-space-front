@@ -232,7 +232,10 @@ const useAudioChat = (props: UseAudioChatProps) => {
         if (peerConnection) {
           await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
         }
-      } else if (type === "leave-room" && currentUserUid !== fromUserID) {
+      } else if (
+        (type === "leave-room" || type === "disconnect-room") &&
+        currentUserUid !== fromUserID
+      ) {
         console.log(fromUserID, "が退出しました。" + nowTime());
 
         const peerConnection = peerConnectionRefs.current.get(fromUserID);
