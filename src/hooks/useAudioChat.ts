@@ -86,6 +86,17 @@ const useAudioChat = (props: UseAudioChatProps) => {
             newRemoteAudioRefs.delete(String(toUserID));
             return newRemoteAudioRefs;
           });
+          // 再接続を試みる
+          connectWebSocket();
+          if (socket.current && socket.current.readyState === WebSocket.OPEN) {
+            socket.current.send(
+              JSON.stringify({
+                type: "join-room",
+                roomID,
+                fromUserID: currentUserUid,
+              })
+            );
+          }
         }
       };
 
@@ -104,7 +115,7 @@ const useAudioChat = (props: UseAudioChatProps) => {
 
       return peerConnection;
     },
-    [currentUserUid, roomID, socket]
+    [connectWebSocket, currentUserUid, roomID, socket]
   );
 
   const handleMessage = useCallback(
@@ -329,7 +340,16 @@ const useAudioChat = (props: UseAudioChatProps) => {
       };
       socket.current.onerror = (error) => {
         setTimeout(() => {
-          joinRoom();
+          connectWebSocket();
+          if (socket.current && socket.current.readyState === WebSocket.OPEN) {
+            socket.current.send(
+              JSON.stringify({
+                type: "join-room",
+                roomID,
+                fromUserID: currentUserUid,
+              })
+            );
+          }
         }, 5000);
         console.error("WebSocket error:", error);
       };
