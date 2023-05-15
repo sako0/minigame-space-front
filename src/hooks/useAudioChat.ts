@@ -25,6 +25,16 @@ type Message = {
   candidate: RTCIceCandidate;
 };
 
+const nowTime = () => {
+  // 現在の時刻を取得
+  const now = new Date();
+  const hour = now.getHours();
+  const minute = now.getMinutes();
+  const second = now.getSeconds();
+
+  return hour + ":" + minute + ":" + second;
+};
+
 const useAudioChat = (props: UseAudioChatProps) => {
   const {
     roomID,
@@ -140,6 +150,7 @@ const useAudioChat = (props: UseAudioChatProps) => {
           (id) => !peerConnectionRefs.current.has(id) && id !== currentUserUid
         );
         console.log("newUserIds:", newUserIds);
+        console.log(newUserIds[0], "が入室しました。" + nowTime());
 
         await Promise.all(
           newUserIds.map(async (otherUserId) => {
@@ -222,7 +233,7 @@ const useAudioChat = (props: UseAudioChatProps) => {
           await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
         }
       } else if (type === "leave-room" && currentUserUid !== fromUserID) {
-        console.log(fromUserID, "が退出しました。");
+        console.log(fromUserID, "が退出しました。" + nowTime());
 
         const peerConnection = peerConnectionRefs.current.get(fromUserID);
 
