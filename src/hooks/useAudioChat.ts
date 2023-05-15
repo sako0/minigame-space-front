@@ -321,18 +321,24 @@ const useAudioChat = (props: UseAudioChatProps) => {
             })
           );
         } else {
-          joinRoom();
+          setTimeout(() => {
+            joinRoom();
+          }, 5000);
         }
       };
       socket.current.onmessage = (event: MessageEvent) => {
         handleMessage(event);
       };
       socket.current.onerror = (error) => {
-        joinRoom();
+        setTimeout(() => {
+          joinRoom();
+        }, 5000);
         console.error("WebSocket error:", error);
       };
       socket.current.onclose = (event) => {
-        joinRoom();
+        setTimeout(() => {
+          joinRoom();
+        }, 5000);
         console.log("WebSocket closed:", event);
       };
     }
