@@ -321,18 +321,18 @@ const useAudioChat = (props: UseAudioChatProps) => {
             })
           );
         } else {
-          leaveRoom();
+          joinRoom();
         }
       };
       socket.current.onmessage = (event: MessageEvent) => {
         handleMessage(event);
       };
       socket.current.onerror = (error) => {
-        leaveRoom();
+        joinRoom();
         console.error("WebSocket error:", error);
       };
       socket.current.onclose = (event) => {
-        leaveRoom();
+        joinRoom();
         console.log("WebSocket closed:", event);
       };
     }
@@ -342,7 +342,6 @@ const useAudioChat = (props: UseAudioChatProps) => {
     connectWebSocket,
     socket,
     currentUserUid,
-    leaveRoom,
     handleMessage,
   ]);
 
