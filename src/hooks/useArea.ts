@@ -1,36 +1,31 @@
-import { useState, useEffect, MutableRefObject, useCallback } from "react";
+import { MutableRefObject, useCallback, useEffect, useState } from "react";
 
 type UseAreaProps = {
   areaID: number;
-  fromUserID: number;
+  currentUserID: number;
   socket: MutableRefObject<WebSocket | null>;
-  connectWebSocket: () => void;
-  disconnectWebSocket: () => void;
+};
+
+type UserInfo = {
+  userID: number;
+  xAxis: number;
+  yAxis: number;
 };
 
 export const useArea = (props: UseAreaProps) => {
-  const { areaID, fromUserID, socket, connectWebSocket, disconnectWebSocket } =
-    props;
-
+  const [connectedUsers, setConnectedUsers] = useState<UserInfo[]>([]);
+  const { areaID, currentUserID, socket } = props;
   const joinArea = useCallback(() => {
-    connectWebSocket();
     if (socket.current) {
-      socket.current.onopen = () => {
-        if (!socket.current) return;
-        socket.current.send(
-          JSON.stringify({
-            type: "join-area",
-            areaID: areaID,
-            fromUserID: fromUserID,
-          })
-        );
-      };
-
-      socket.current.onerror = (error) => {
-        console.error("WebSocket error:", error);
-      };
+      socket.current.send(
+        JSON.stringify({
+          type: "join-area",
+          areaID: areaID,
+          fromUserID: currentUserID,
+        })
+      );
     }
-  }, [areaID, fromUserID, socket, connectWebSocket]);
+  }, [areaID, currentUserID, socket]);
 
   const leaveArea = useCallback(() => {
     if (socket.current) {
@@ -38,12 +33,11 @@ export const useArea = (props: UseAreaProps) => {
         JSON.stringify({
           type: "leave-area",
           areaID: areaID,
-          fromUserID: fromUserID,
+          fromUserID: currentUserID,
         })
       );
-      disconnectWebSocket();
     }
-  }, [areaID, fromUserID, socket, disconnectWebSocket]);
+  }, [areaID, currentUserID, socket]);
 
-  return { joinArea, leaveArea };
+  return { joinArea, connectedUsers, setConnectedUsers, leaveArea };
 };
