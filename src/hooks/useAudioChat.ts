@@ -150,7 +150,7 @@ const useAudioChat = (props: UseAudioChatProps) => {
           (id) => !peerConnectionRefs.current.has(id) && id !== currentUserUid
         );
         console.log("newUserIds:", newUserIds);
-        console.log(newUserIds[0], "が入室しました。" + nowTime());
+        console.log(newUserIds[0], "が入室しました。時刻:" + nowTime());
 
         await Promise.all(
           newUserIds.map(async (otherUserId) => {
@@ -236,7 +236,7 @@ const useAudioChat = (props: UseAudioChatProps) => {
         (type === "leave-room" || type === "disconnect-room") &&
         currentUserUid !== fromUserID
       ) {
-        console.log(fromUserID, "が退出しました。" + nowTime());
+        console.log(fromUserID, "が退出しました。時刻: " + nowTime());
 
         const peerConnection = peerConnectionRefs.current.get(fromUserID);
 
