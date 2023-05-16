@@ -19,6 +19,9 @@ const Area = () => {
   const { id } = router.query;
   const [currentUserID, setCurrentUserID] = useState<number>(0);
   const [isJoined, setIsJoined] = useState<boolean>(false);
+  const [xAxis, setXAxis] = useState(0);
+  const [yAxis, setYAxis] = useState(0);
+
   const url =
     process.env.NODE_ENV === "production"
       ? `wss://api.mini-game-space.link/ws`
@@ -26,7 +29,7 @@ const Area = () => {
   const { socket, connectWebSocket } = useWebSocket(url);
   const isWebSocketOpen = useRef(false);
 
-  const { move, xAxis, yAxis, setXAxis, setYAxis } = useMove({
+  const { move } = useMove({
     socket,
     areaID: Number(id),
     currentUserID: currentUserID ?? 0,
@@ -97,10 +100,6 @@ const Area = () => {
     setIsJoined(false);
   };
 
-  useEffect(() => {
-    console.log(connectedUsers);
-  }, [connectedUsers]);
-
   return (
     <div className="text-center">
       <div>
@@ -139,9 +138,9 @@ const Area = () => {
               <input
                 type="text"
                 className="bg-gray-200 rounded-md shadow-lg m-2 p-2 text-black"
-                value={xAxis}
                 onChange={(e) => {
-                  setXAxis(Number(e.target.value));
+                  const value = Number(e.target.value);
+                  setXAxis(value);
                 }}
               />
             </div>
@@ -150,16 +149,16 @@ const Area = () => {
               <input
                 type="text"
                 className="bg-gray-200 rounded-md shadow-lg m-2 p-2 text-black"
-                value={yAxis}
                 onChange={(e) => {
-                  setYAxis(Number(e.target.value));
+                  const value = Number(e.target.value);
+                  setYAxis(value);
                 }}
               />
             </div>
             <button
               className="bg-blue-500 rounded-md shadow-lg m-2 p-2"
               onClick={() => {
-                move();
+                move(xAxis, yAxis);
               }}
             >
               Move
