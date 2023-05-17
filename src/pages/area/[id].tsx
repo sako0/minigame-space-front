@@ -28,6 +28,7 @@ const Area = () => {
   const [currentUserID, setCurrentUserID] = useState<number>(0);
   const [isJoined, setIsJoined] = useState<boolean>(false);
   const [userLocations, setUserLocations] = useState<UserLocation[]>([]);
+  const [canClick, setCanClick] = useState(true);
 
   const url =
     process.env.NODE_ENV === "production"
@@ -149,7 +150,13 @@ const Area = () => {
       <div
         className="text-center cursor-pointer h-screen relative"
         onClick={(e) => {
-          move(e.clientX, e.clientY);
+          if (canClick) {
+            move(e.clientX, e.clientY);
+            setCanClick(false);
+            setTimeout(() => {
+              setCanClick(true);
+            }, 1000);
+          }
         }}
       >
         <div>
