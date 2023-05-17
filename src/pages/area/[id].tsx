@@ -12,6 +12,14 @@ export type Message = {
   connectedUserIds: number[];
   xAxis: number;
   yAxis: number;
+  userLocations: UserLocation[];
+};
+type UserLocation = {
+  userID: number;
+  xAxis: number;
+  yAxis: number;
+  roomID: number;
+  areaID: number;
 };
 
 const Area = () => {
@@ -19,8 +27,7 @@ const Area = () => {
   const { id } = router.query;
   const [currentUserID, setCurrentUserID] = useState<number>(0);
   const [isJoined, setIsJoined] = useState<boolean>(false);
-  const [xAxis, setXAxis] = useState(0);
-  const [yAxis, setYAxis] = useState(0);
+  const [userLocations, setUserLocations] = useState<UserLocation[]>([]);
 
   const url =
     process.env.NODE_ENV === "production"
@@ -51,9 +58,9 @@ const Area = () => {
       };
       currentSocket.onmessage = (event) => {
         const data: Message = JSON.parse(event.data);
-        const { type, fromUserID, toUserID, xAxis, yAxis } = data;
+        const { type, fromUserID, xAxis, yAxis, userLocations } = data;
         if (type === "move") {
-          console.log("move", data);
+          setUserLocations(userLocations);
         } else if (type === "joined-area") {
           console.log("joined-area", data);
           if (fromUserID === currentUserID) return;
@@ -124,7 +131,7 @@ const Area = () => {
   if (socket.current) {
     return (
       <div
-        className="text-center cursor-pointer h-screen"
+        className="text-center cursor-pointer h-screen relative"
         onClick={(e) => {
           move(e.clientX, e.clientY);
         }}
@@ -143,6 +150,22 @@ const Area = () => {
             </button>
           </div>
         </div>
+        {userLocations.map((userLocation) => {
+          console.log(userLocation);
+
+          return (
+            <div
+              key={userLocation.userID}
+              className="absolute flex justify-center items-center w-10 h-10 rounded-full border bg-blue-400"
+              style={{
+                left: `${userLocation.yAxis - 18}px`,
+                top: `${userLocation.xAxis - 18}px`,
+              }}
+            >
+              <p>{userLocation.userID}</p>
+            </div>
+          );
+        })}
       </div>
     );
   }
