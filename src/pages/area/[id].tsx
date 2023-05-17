@@ -99,11 +99,10 @@ const Area = () => {
     }
     setIsJoined(false);
   };
-
-  return (
-    <div className="text-center">
-      <div>
-        {!isJoined ? (
+  if (!isJoined) {
+    return (
+      <div className="text-center">
+        <div>
           <input
             className="bg-gray-200 rounded-md shadow-lg m-2 p-2 text-black"
             placeholder="ユーザーID"
@@ -111,63 +110,42 @@ const Area = () => {
             value={currentUserID === 0 ? "" : String(currentUserID)}
             onChange={(e) => setCurrentUserID(Number(e.target.value))}
           />
-        ) : (
-          <p className="text-black">ユーザーID: {currentUserID}</p>
-        )}
 
-        {!isJoined && (
           <button
             className="bg-lime-500 rounded-md shadow-lg m-2 p-2"
             onClick={onJoinClick}
           >
             Join Area
           </button>
-        )}
-        {isJoined && (
-          <button
-            className="bg-red-500 rounded-md shadow-lg m-2 p-2"
-            onClick={onLeaveClick}
-          >
-            Leave Area
-          </button>
-        )}
-        {isJoined && socket.current && (
-          <>
-            <div className="flex justify-center">
-              <p className="text-black">xAxis: {xAxis}</p>
-              <input
-                type="text"
-                className="bg-gray-200 rounded-md shadow-lg m-2 p-2 text-black"
-                onChange={(e) => {
-                  const value = Number(e.target.value);
-                  setXAxis(value);
-                }}
-              />
-            </div>
-            <div className="flex justify-center">
-              <p className="text-black">yAxis: {yAxis}</p>
-              <input
-                type="text"
-                className="bg-gray-200 rounded-md shadow-lg m-2 p-2 text-black"
-                onChange={(e) => {
-                  const value = Number(e.target.value);
-                  setYAxis(value);
-                }}
-              />
-            </div>
+        </div>
+      </div>
+    );
+  }
+  if (socket.current) {
+    return (
+      <div
+        className="text-center cursor-pointer h-screen"
+        onClick={(e) => {
+          move(e.clientX, e.clientY);
+        }}
+      >
+        <div>
+          <p className="text-black">ユーザーID: {currentUserID}</p>
+          <div>
             <button
-              className="bg-blue-500 rounded-md shadow-lg m-2 p-2"
-              onClick={() => {
-                move(xAxis, yAxis);
+              className="bg-red-500 rounded-md shadow-lg m-2 p-2"
+              onClick={(e) => {
+                e.stopPropagation();
+                onLeaveClick();
               }}
             >
-              Move
+              Leave
             </button>
-          </>
-        )}
+          </div>
+        </div>
       </div>
-    </div>
-  );
+    );
+  }
 };
 
 export default Area;
