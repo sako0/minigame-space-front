@@ -60,7 +60,23 @@ const Area = () => {
         const data: Message = JSON.parse(event.data);
         const { type, fromUserID, xAxis, yAxis, userLocations } = data;
         if (type === "move") {
-          setUserLocations(userLocations);
+          const updatedUserLocations = userLocations.map((userLocation) => {
+            const newUserLocation = userLocations.find(
+              (ul) => ul.userID === userLocation.userID
+            );
+
+            if (
+              newUserLocation &&
+              (newUserLocation.xAxis !== userLocation.xAxis ||
+                newUserLocation.yAxis !== userLocation.yAxis)
+            ) {
+              return newUserLocation;
+            }
+
+            return userLocation;
+          });
+
+          setUserLocations(updatedUserLocations);
         } else if (type === "joined-area") {
           console.log("joined-area", data);
           if (fromUserID === currentUserID) return;
