@@ -156,7 +156,7 @@ const Area = () => {
           return (
             <div
               key={userLocation.userID}
-              className="absolute flex justify-center items-center w-10 h-10 rounded-full border bg-blue-400"
+              className="absolute flex justify-center items-center w-10 h-10 rounded-full border bg-blue-400 transition-all duration-500 ease-linear"
               style={{
                 left: `${userLocation.yAxis - 18}px`,
                 top: `${userLocation.xAxis - 18}px`,
