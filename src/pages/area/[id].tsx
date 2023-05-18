@@ -1,4 +1,4 @@
-import { useArea } from "@/hooks/useArea";
+import { UserLocation, useArea } from "@/hooks/useArea";
 import { useMove } from "@/hooks/useMove";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import { useRouter } from "next/router";
@@ -14,13 +14,6 @@ export type Message = {
   yAxis: number;
   userLocations: UserLocation[];
 };
-type UserLocation = {
-  userID: number;
-  xAxis: number;
-  yAxis: number;
-  roomID: number;
-  areaID: number;
-};
 
 const Area = () => {
   const router = useRouter();
@@ -28,6 +21,7 @@ const Area = () => {
   const [currentUserID, setCurrentUserID] = useState<number>(0);
   const [isJoined, setIsJoined] = useState<boolean>(false);
   const [userLocations, setUserLocations] = useState<UserLocation[]>([]);
+  const [canClick, setCanClick] = useState(true);
 
   const url =
     process.env.NODE_ENV === "production"
@@ -41,7 +35,7 @@ const Area = () => {
     areaID: Number(id),
     currentUserID: currentUserID ?? 0,
   });
-  const { joinArea, connectedUsers, setConnectedUsers, leaveArea } = useArea({
+  const { joinArea, leaveArea } = useArea({
     areaID: Number(id),
     currentUserID: currentUserID ?? 0,
     socket,
@@ -60,23 +54,30 @@ const Area = () => {
         const data: Message = JSON.parse(event.data);
         const { type, fromUserID, xAxis, yAxis, userLocations } = data;
         if (type === "move") {
-          setUserLocations(userLocations);
+          const updatedUserLocations = userLocations.map((userLocation) => {
+            const newUserLocation = userLocations.find(
+              (ul) => ul.userID === userLocation.userID
+            );
+
+            if (
+              newUserLocation &&
+              (newUserLocation.xAxis !== userLocation.xAxis ||
+                newUserLocation.yAxis !== userLocation.yAxis)
+            ) {
+              return newUserLocation;
+            }
+
+            return userLocation;
+          });
+
+          setUserLocations(updatedUserLocations);
         } else if (type === "joined-area") {
           console.log("joined-area", data);
-          if (fromUserID === currentUserID) return;
-
-          const newConnectedUser = {
-            userID: fromUserID,
-            xAxis: xAxis,
-            yAxis: yAxis,
-          };
-          setConnectedUsers((prevUsers) => [...prevUsers, newConnectedUser]);
+          setUserLocations(userLocations);
         }
         if (type === "leave-area") {
           console.log("leave-area", data);
-          setConnectedUsers((prevUsers) =>
-            prevUsers.filter((user) => user.userID !== fromUserID)
-          );
+          setUserLocations(userLocations);
         }
       };
       currentSocket.onerror = (error) => {
@@ -91,7 +92,7 @@ const Area = () => {
         currentSocket.close();
       }
     };
-  }, [currentUserID, id, isJoined, joinArea, move, setConnectedUsers, socket]);
+  }, [currentUserID, id, isJoined, joinArea, move, socket]);
 
   const onJoinClick = () => {
     if (!isWebSocketOpen.current) {
@@ -133,7 +134,13 @@ const Area = () => {
       <div
         className="text-center cursor-pointer h-screen relative"
         onClick={(e) => {
-          move(e.clientX, e.clientY);
+          if (canClick) {
+            move(e.clientX, e.clientY);
+            setCanClick(false);
+            setTimeout(() => {
+              setCanClick(true);
+            }, 500);
+          }
         }}
       >
         <div>
@@ -151,8 +158,6 @@ const Area = () => {
           </div>
         </div>
         {userLocations.map((userLocation) => {
-          console.log(userLocation);
-
           return (
             <div
               key={userLocation.userID}
