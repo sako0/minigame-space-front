@@ -159,21 +159,23 @@ const Area = () => {
             </button>
           </div>
         </div>
-        {userLocations.map((userLocation) => {
-          return (
-            <div
-              key={userLocation.userID}
-              className="absolute flex justify-center items-center w-10 h-10 rounded-full border bg-blue-400 transition-all duration-500 ease-linear"
-              style={{
-                left: `${userLocation.yAxis - 18}px`,
-                top: `${userLocation.xAxis - 18}px`,
-                transition: "top 0.5s, left 0.5s",
-              }}
-            >
-              <p>{userLocation.userID}</p>
-            </div>
-          );
-        })}
+        {userLocations
+          .sort((a, b) => a.userID - b.userID)
+          .map((userLocation) => {
+            return (
+              <div
+                key={userLocation.userID}
+                className="absolute flex justify-center items-center w-10 h-10 rounded-full border bg-blue-400 transition-all duration-500 ease-linear"
+                style={{
+                  left: `${userLocation.yAxis - 18}px`,
+                  top: `${userLocation.xAxis - 18}px`,
+                  transition: "top 0.5s, left 0.5s",
+                }}
+              >
+                <p>{userLocation.userID}</p>
+              </div>
+            );
+          })}
       </div>
     );
   }
