@@ -134,7 +134,7 @@ const Area = () => {
   if (socket.current) {
     return (
       <div
-        className="text-center cursor-pointer h-screen relative"
+        className="text-center cursor-pointer m-auto h-[650px] w-[1400px] relative bg-orange-200"
         onClick={(e) => {
           if (canClick) {
             move(e.clientX, e.clientY);
