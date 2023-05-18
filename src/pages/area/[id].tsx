@@ -134,7 +134,7 @@ const Area = () => {
   if (socket.current) {
     return (
       <div
-        className="text-center cursor-pointer m-auto h-[650px] w-[1400px] relative bg-orange-200"
+        className="text-center cursor-pointer m-auto h-screen w-screen relative bg-orange-100"
         onClick={(e) => {
           if (canClick) {
             move(e.clientX, e.clientY);
@@ -167,8 +167,8 @@ const Area = () => {
                 key={userLocation.userID}
                 className="absolute flex justify-center items-center w-10 h-10 rounded-full border bg-blue-400 transition-all duration-500 ease-linear"
                 style={{
-                  left: `${userLocation.yAxis - 18}px`,
-                  top: `${userLocation.xAxis - 18}px`,
+                  left: `calc(${userLocation.xAxis}% - 16px)`,
+                  top: `calc(${userLocation.yAxis}% - 16px)`,
                   transition: "top 0.5s, left 0.5s",
                 }}
               >
