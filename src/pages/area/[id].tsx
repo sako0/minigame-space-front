@@ -22,8 +22,6 @@ const Area = () => {
   const [isJoined, setIsJoined] = useState<boolean>(false);
   const [userLocations, setUserLocations] = useState<UserLocation[]>([]);
   const [canClick, setCanClick] = useState(true);
-  const [currentUserXAxis, setCurrentUserXAxis] = useState<number>(0);
-  const [currentUserYAxis, setCurrentUserYAxis] = useState<number>(0);
 
   const url =
     process.env.NODE_ENV === "production"
@@ -54,16 +52,9 @@ const Area = () => {
       };
       currentSocket.onmessage = (event) => {
         const data: Message = JSON.parse(event.data);
-        const {
-          type,
-          userLocations: incomingUserLocations,
-          xAxis,
-          yAxis,
-        } = data;
+        const { type, userLocations: incomingUserLocations } = data;
 
         if (type === "move") {
-          setCurrentUserXAxis(xAxis);
-          setCurrentUserYAxis(yAxis);
           setUserLocations((prevLocations) => {
             return incomingUserLocations.map((incomingLocation) => {
               const existingLocation = prevLocations.find(
@@ -88,8 +79,6 @@ const Area = () => {
         if (type === "leave-area") {
           console.log("leave-area", data);
           setUserLocations([]);
-          setCurrentUserXAxis(0);
-          setCurrentUserYAxis(0);
         }
       };
       currentSocket.onerror = (error) => {
@@ -115,9 +104,6 @@ const Area = () => {
 
   const onLeaveClick = () => {
     if (isWebSocketOpen.current) {
-      setUserLocations([]);
-      setCurrentUserXAxis(0);
-      setCurrentUserYAxis(0);
       leaveArea();
     }
     setIsJoined(false);
@@ -171,15 +157,6 @@ const Area = () => {
               Leave
             </button>
           </div>
-        </div>
-        <div
-          className="absolute flex justify-center items-center w-10 h-10 rounded-full border bg-blue-400 transition-all duration-500 ease-linear"
-          style={{
-            left: `${currentUserYAxis - 18}px`,
-            top: `${currentUserXAxis - 18}px`,
-          }}
-        >
-          <p>{currentUserID}</p>
         </div>
         {userLocations.map((userLocation) => {
           return (
