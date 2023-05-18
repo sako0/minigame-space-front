@@ -52,32 +52,32 @@ const Area = () => {
       };
       currentSocket.onmessage = (event) => {
         const data: Message = JSON.parse(event.data);
-        const { type, fromUserID, xAxis, yAxis, userLocations } = data;
+        const { type, userLocations: incomingUserLocations } = data;
         if (type === "move") {
-          const updatedUserLocations = userLocations.map((userLocation) => {
-            const newUserLocation = userLocations.find(
-              (ul) => ul.userID === userLocation.userID
-            );
+          setUserLocations((prevLocations) => {
+            return incomingUserLocations.map((incomingLocation) => {
+              const existingLocation = prevLocations.find(
+                (location) => location.userID === incomingLocation.userID
+              );
 
-            if (
-              newUserLocation &&
-              (newUserLocation.xAxis !== userLocation.xAxis ||
-                newUserLocation.yAxis !== userLocation.yAxis)
-            ) {
-              return newUserLocation;
-            }
+              if (
+                existingLocation &&
+                (existingLocation.xAxis !== incomingLocation.xAxis ||
+                  existingLocation.yAxis !== incomingLocation.yAxis)
+              ) {
+                return incomingLocation;
+              }
 
-            return userLocation;
+              return existingLocation ?? incomingLocation;
+            });
           });
-
-          setUserLocations(updatedUserLocations);
         } else if (type === "joined-area") {
           console.log("joined-area", data);
-          setUserLocations(userLocations);
+          setUserLocations(incomingUserLocations);
         }
         if (type === "leave-area") {
           console.log("leave-area", data);
-          setUserLocations(userLocations);
+          setUserLocations([]);
         }
       };
       currentSocket.onerror = (error) => {
