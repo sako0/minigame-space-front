@@ -52,32 +52,34 @@ const Area = () => {
       };
       currentSocket.onmessage = (event) => {
         const data: Message = JSON.parse(event.data);
-        const { type, fromUserID, xAxis, yAxis, userLocations } = data;
+        const { type, userLocations: incomingUserLocations } = data;
+
         if (type === "move") {
-          const updatedUserLocations = userLocations.map((userLocation) => {
-            const newUserLocation = userLocations.find(
-              (ul) => ul.userID === userLocation.userID
-            );
+          console.log("userLocations:", incomingUserLocations);
+          setUserLocations((prevLocations) => {
+            return incomingUserLocations.map((incomingLocation) => {
+              const existingLocation = prevLocations.find(
+                (location) => location.userID === incomingLocation.userID
+              );
 
-            if (
-              newUserLocation &&
-              (newUserLocation.xAxis !== userLocation.xAxis ||
-                newUserLocation.yAxis !== userLocation.yAxis)
-            ) {
-              return newUserLocation;
-            }
+              if (
+                existingLocation &&
+                (existingLocation.xAxis !== incomingLocation.xAxis ||
+                  existingLocation.yAxis !== incomingLocation.yAxis)
+              ) {
+                return incomingLocation;
+              }
 
-            return userLocation;
+              return existingLocation ?? incomingLocation;
+            });
           });
-
-          setUserLocations(updatedUserLocations);
         } else if (type === "joined-area") {
           console.log("joined-area", data);
-          setUserLocations(userLocations);
+          setUserLocations(incomingUserLocations);
         }
         if (type === "leave-area") {
           console.log("leave-area", data);
-          setUserLocations(userLocations);
+          setUserLocations([]);
         }
       };
       currentSocket.onerror = (error) => {
@@ -157,20 +159,23 @@ const Area = () => {
             </button>
           </div>
         </div>
-        {userLocations.map((userLocation) => {
-          return (
-            <div
-              key={userLocation.userID}
-              className="absolute flex justify-center items-center w-10 h-10 rounded-full border bg-blue-400 transition-all duration-500 ease-linear"
-              style={{
-                left: `${userLocation.yAxis - 18}px`,
-                top: `${userLocation.xAxis - 18}px`,
-              }}
-            >
-              <p>{userLocation.userID}</p>
-            </div>
-          );
-        })}
+        {userLocations
+          .sort((a, b) => a.userID - b.userID)
+          .map((userLocation) => {
+            return (
+              <div
+                key={userLocation.userID}
+                className="absolute flex justify-center items-center w-10 h-10 rounded-full border bg-blue-400 transition-all duration-500 ease-linear"
+                style={{
+                  left: `${userLocation.yAxis - 18}px`,
+                  top: `${userLocation.xAxis - 18}px`,
+                  transition: "top 0.5s, left 0.5s",
+                }}
+              >
+                <p>{userLocation.userID}</p>
+              </div>
+            );
+          })}
       </div>
     );
   }
