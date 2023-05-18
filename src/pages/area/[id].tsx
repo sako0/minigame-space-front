@@ -167,6 +167,7 @@ const Area = () => {
               style={{
                 left: `${userLocation.yAxis - 18}px`,
                 top: `${userLocation.xAxis - 18}px`,
+                transition: "top 0.5s, left 0.5s",
               }}
             >
               <p>{userLocation.userID}</p>
