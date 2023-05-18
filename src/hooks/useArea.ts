@@ -6,14 +6,15 @@ type UseAreaProps = {
   socket: MutableRefObject<WebSocket | null>;
 };
 
-type UserInfo = {
+export type UserLocation = {
   userID: number;
   xAxis: number;
   yAxis: number;
+  roomID: number;
+  areaID: number;
 };
 
 export const useArea = (props: UseAreaProps) => {
-  const [connectedUsers, setConnectedUsers] = useState<UserInfo[]>([]);
   const { areaID, currentUserID, socket } = props;
   const joinArea = useCallback(() => {
     if (socket.current) {
@@ -39,5 +40,5 @@ export const useArea = (props: UseAreaProps) => {
     }
   }, [areaID, currentUserID, socket]);
 
-  return { joinArea, connectedUsers, setConnectedUsers, leaveArea };
+  return { joinArea, leaveArea };
 };
