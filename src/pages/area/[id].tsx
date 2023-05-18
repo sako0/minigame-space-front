@@ -53,6 +53,7 @@ const Area = () => {
       currentSocket.onmessage = (event) => {
         const data: Message = JSON.parse(event.data);
         const { type, userLocations: incomingUserLocations } = data;
+
         if (type === "move") {
           setUserLocations((prevLocations) => {
             return incomingUserLocations.map((incomingLocation) => {
