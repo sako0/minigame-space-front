@@ -55,6 +55,7 @@ const Area = () => {
         const { type, userLocations: incomingUserLocations } = data;
 
         if (type === "move") {
+          console.log("userLocations:", incomingUserLocations);
           setUserLocations((prevLocations) => {
             return incomingUserLocations.map((incomingLocation) => {
               const existingLocation = prevLocations.find(
