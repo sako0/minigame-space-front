@@ -79,7 +79,11 @@ const Area = () => {
         }
         if (type === "leave-area") {
           console.log("leave-area", data);
-          setUserLocations([]);
+          setUserLocations(
+            incomingUserLocations.filter(
+              (user) => user.userID !== data.fromUserID
+            )
+          );
         }
       };
       currentSocket.onerror = (error) => {
