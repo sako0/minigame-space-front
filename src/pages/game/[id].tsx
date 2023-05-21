@@ -1,3 +1,5 @@
+import RemoteAudio from "@/components/RemoteAudio";
+import useAudioChat from "@/hooks/useAudioChat";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import { UserGameLocation, useGame } from "@/hooks/userGame";
 import { useRouter } from "next/router";
@@ -28,7 +30,13 @@ const Game = () => {
     process.env.NODE_ENV === "production"
       ? `wss://api.mini-game-space.link/game`
       : `ws://192.168.11.6:5500/game`;
-  const { socket, connectWebSocket } = useWebSocket(url);
+  const {
+    socket,
+    connectWebSocket,
+    disconnectWebSocket,
+    addHandler,
+    removeHandler,
+  } = useWebSocket(url);
   const isWebSocketOpen = useRef(false);
 
   const { joinGame, leaveGame, move } = useGame({
@@ -36,65 +44,100 @@ const Game = () => {
     currentUserID: currentUserID ?? 0,
     socket,
   });
+  // const {
+  //   localAudioRef,
+  //   remoteAudioRefs,
+  //   handleVolumeChange,
+  //   joinAudioChat,
+  //   leaveAudioChat,
+  //   toggleMute,
+  //   isMuted,
+  //   audioContext,
+  // } = useAudioChat({
+  //   roomID: Number(id),
+  //   currentUserUid: currentUserID ?? 0,
+  //   socket,
+  //   connectWebSocket,
+  //   disconnectWebSocket,
+  //   joinMessageType: "join-game",
+  //   leaveMessageType: "leave-game",
+  //   disconnectMessageType: "disconnect-game",
+  // });
 
   useEffect(() => {
     const currentSocket = socket.current;
-    if (currentSocket) {
-      currentSocket.onopen = () => {
-        isWebSocketOpen.current = true;
-        if (isJoined && currentUserID) {
-          joinGame();
-        }
-      };
-      currentSocket.onmessage = (event) => {
-        const data: Message = JSON.parse(event.data);
-        const { type, userGameLocations: incomingUserGameLocations } = data;
+    const openHandler = () => {
+      joinGame();
+    };
+    const messageHandler = (event: any) => {
+      if (!event.data) return;
+      const data: Message = JSON.parse(event.data);
+      const { type, userGameLocations: incomingUserGameLocations } = data;
+      console.log("incomingUserGameLocations", incomingUserGameLocations);
 
-        if (type === "move") {
-          console.log("userGameLocations:", incomingUserGameLocations);
-          setUserGameLocations((prevLocations) => {
-            return incomingUserGameLocations.map((incomingLocation) => {
-              const existingLocation = prevLocations.find(
-                (location) => location.userID === incomingLocation.userID
-              );
+      if (type === "move") {
+        setUserGameLocations((prevLocations) => {
+          return incomingUserGameLocations.map((incomingLocation) => {
+            const existingLocation = prevLocations.find(
+              (location) => location.userID === incomingLocation.userID
+            );
 
-              if (
-                existingLocation &&
-                (existingLocation.xAxis !== incomingLocation.xAxis ||
-                  existingLocation.yAxis !== incomingLocation.yAxis)
-              ) {
-                return incomingLocation;
-              }
+            if (
+              existingLocation &&
+              (existingLocation.xAxis !== incomingLocation.xAxis ||
+                existingLocation.yAxis !== incomingLocation.yAxis)
+            ) {
+              return incomingLocation;
+            }
 
-              return existingLocation ?? incomingLocation;
-            });
+            return existingLocation ?? incomingLocation;
           });
-        } else if (type === "client-joined") {
-          console.log("client-joined", data);
-          setUserGameLocations(incomingUserGameLocations);
-        }
-        if (type === "leave-game") {
-          console.log("leave-game", data);
-          setUserGameLocations(
-            incomingUserGameLocations.filter(
-              (user) => user.userID !== data.fromUserID
-            )
-          );
-        }
-      };
-      currentSocket.onerror = (error) => {
-        console.error("WebSocket error:", error);
-      };
-      currentSocket.onclose = () => {
-        isWebSocketOpen.current = false;
-      };
+        });
+      } else if (type === "client-joined") {
+        console.log("client-joined", data);
+        setUserGameLocations(incomingUserGameLocations);
+      }
+      if (type === "leave-game") {
+        console.log("leave-game", data);
+        setUserGameLocations(
+          incomingUserGameLocations.filter(
+            (user) => user.userID !== data.fromUserID
+          )
+        );
+      }
+    };
+    const errorHandler = (error: any) => {
+      console.error("WebSocket error:", error);
+    };
+    const closeHandler = () => {
+      isWebSocketOpen.current = false;
+    };
+    if (currentSocket) {
+      addHandler("open", openHandler);
+      addHandler("message", messageHandler);
+      addHandler("error", errorHandler);
+      addHandler("close", closeHandler);
     }
     return () => {
       if (isWebSocketOpen.current && currentSocket) {
+        removeHandler("open", openHandler);
+        removeHandler("message", messageHandler);
+        removeHandler("error", errorHandler);
+        removeHandler("close", closeHandler);
         currentSocket.close();
       }
     };
-  }, [currentUserID, id, isJoined, joinGame, move, socket]);
+  }, [
+    addHandler,
+    currentUserID,
+    disconnectWebSocket,
+    id,
+    isJoined,
+    joinGame,
+    move,
+    removeHandler,
+    socket,
+  ]);
 
   const onJoinClick = () => {
     if (!isWebSocketOpen.current) {
@@ -106,6 +149,7 @@ const Game = () => {
   const onLeaveClick = () => {
     if (isWebSocketOpen.current) {
       leaveGame();
+      // leaveAudioChat();
     }
     setIsJoined(false);
   };
@@ -136,7 +180,11 @@ const Game = () => {
       <div
         className="text-center cursor-pointer m-auto h-screen w-screen relative bg-orange-100"
         onClick={(e) => {
-          if (canClick) {
+          if (
+            canClick &&
+            socket.current &&
+            socket.current.readyState === WebSocket.OPEN
+          ) {
             move(e.clientX, e.clientY);
             setCanClick(false);
             setTimeout(() => {
@@ -159,6 +207,24 @@ const Game = () => {
             </button>
           </div>
         </div>
+        {/* <div className="mt-10">
+          <audio ref={localAudioRef} autoPlay playsInline muted />
+          {Array.from(remoteAudioRefs).map(([userId, { ref, volume }]) => (
+            <div key={userId}>
+              <audio ref={ref} autoPlay />
+              <input
+                type="range"
+                min="0"
+                max="1"
+                step="0.01"
+                value={volume}
+                onChange={(event) =>
+                  handleVolumeChange(userId, Number(event.target.value))
+                }
+              />
+            </div>
+          ))}
+        </div> */}
         {userGameLocations
           .sort((a, b) => a.userID - b.userID)
           .map((userGameLocation) => {

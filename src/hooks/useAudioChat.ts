@@ -7,6 +7,9 @@ type UseAudioChatProps = {
   socket: React.MutableRefObject<WebSocket | null>;
   connectWebSocket: () => void;
   disconnectWebSocket: () => void;
+  joinMessageType: string;
+  leaveMessageType: string;
+  disconnectMessageType: string;
 };
 
 type RemoteAudioRef = {
@@ -42,6 +45,9 @@ const useAudioChat = (props: UseAudioChatProps) => {
     socket,
     connectWebSocket,
     disconnectWebSocket,
+    joinMessageType,
+    leaveMessageType,
+    disconnectMessageType,
   } = props;
   const [isMuted, setIsMuted] = useState(false);
   const [remoteAudioRefs, setRemoteAudioRefs] = useState<
@@ -101,7 +107,7 @@ const useAudioChat = (props: UseAudioChatProps) => {
           if (socket.current && socket.current.readyState === WebSocket.OPEN) {
             socket.current.send(
               JSON.stringify({
-                type: "join-room",
+                type: joinMessageType,
                 roomID,
                 fromUserID: currentUserUid,
               })
@@ -125,7 +131,7 @@ const useAudioChat = (props: UseAudioChatProps) => {
 
       return peerConnection;
     },
-    [connectWebSocket, currentUserUid, roomID, socket]
+    [connectWebSocket, currentUserUid, joinMessageType, roomID, socket]
   );
 
   const handleMessage = useCallback(
@@ -233,7 +239,7 @@ const useAudioChat = (props: UseAudioChatProps) => {
           await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
         }
       } else if (
-        (type === "leave-room" || type === "disconnect-room") &&
+        (type === leaveMessageType || type === disconnectMessageType) &&
         currentUserUid !== fromUserID
       ) {
         console.log(fromUserID, "が退出しました。時刻: " + nowTime());
@@ -268,18 +274,32 @@ const useAudioChat = (props: UseAudioChatProps) => {
         });
       }
     },
-    [socket, currentUserUid, createPeerConnection, roomID]
+    [
+      socket,
+      currentUserUid,
+      leaveMessageType,
+      disconnectMessageType,
+      createPeerConnection,
+      roomID,
+    ]
   );
 
   const leaveRoom = useCallback(() => {
     if (socket.current && socket.current.readyState === WebSocket.OPEN) {
       socket.current.send(
         JSON.stringify({
-          type: "leave-room",
+          type: joinMessageType,
           fromUserID: currentUserUid,
           roomID,
         })
       );
+    }
+    // WebSocket のイベントリスナーを削除
+    if (socket.current) {
+      socket.current.removeEventListener("open", connectWebSocket);
+      socket.current.removeEventListener("message", handleMessage);
+      socket.current.removeEventListener("error", disconnectWebSocket);
+      socket.current.removeEventListener("close", disconnectWebSocket);
     }
 
     remoteAudioRefs.forEach(({ ref }) => {
@@ -318,7 +338,16 @@ const useAudioChat = (props: UseAudioChatProps) => {
     setRemoteAudioRefs(new Map());
     // WebSocket接続を閉じていく
     disconnectWebSocket();
-  }, [currentUserUid, disconnectWebSocket, remoteAudioRefs, roomID, socket]);
+  }, [
+    connectWebSocket,
+    currentUserUid,
+    disconnectWebSocket,
+    handleMessage,
+    joinMessageType,
+    remoteAudioRefs,
+    roomID,
+    socket,
+  ]);
 
   const joinRoom = useCallback(async () => {
     if (!roomID) return;
@@ -338,27 +367,27 @@ const useAudioChat = (props: UseAudioChatProps) => {
     peerConnectionRefs.current.clear();
     connectWebSocket();
     if (socket.current) {
-      socket.current.onopen = () => {
+      socket.current.addEventListener("open", () => {
         if (socket.current && socket.current.readyState === WebSocket.OPEN) {
           socket.current.send(
             JSON.stringify({
-              type: "join-room",
+              type: joinMessageType,
               roomID,
               fromUserID: currentUserUid,
             })
           );
         }
-      };
-      socket.current.onmessage = (event: MessageEvent) => {
+      });
+      socket.current.addEventListener("message", (event: MessageEvent) => {
         handleMessage(event);
-      };
-      socket.current.onerror = (error) => {
+      });
+      socket.current.addEventListener("error", (error) => {
         setTimeout(() => {
           connectWebSocket();
           if (socket.current && socket.current.readyState === WebSocket.OPEN) {
             socket.current.send(
               JSON.stringify({
-                type: "join-room",
+                type: joinMessageType,
                 roomID,
                 fromUserID: currentUserUid,
               })
@@ -366,16 +395,17 @@ const useAudioChat = (props: UseAudioChatProps) => {
           }
         }, 5000);
         console.error("WebSocket error:", error);
-      };
-      socket.current.onclose = (event) => {
+      });
+      socket.current.addEventListener("close", (event) => {
         console.log("WebSocket closed:", event);
-      };
+      });
     }
   }, [
     roomID,
     audioContext,
     connectWebSocket,
     socket,
+    joinMessageType,
     currentUserUid,
     handleMessage,
   ]);
@@ -419,8 +449,8 @@ const useAudioChat = (props: UseAudioChatProps) => {
     localAudioRef,
     remoteAudioRefs,
     handleVolumeChange,
-    joinRoom,
-    leaveRoom,
+    joinAudioChat: joinRoom,
+    leaveAudioChat: leaveRoom,
     toggleMute,
     isMuted,
     audioContext,

@@ -19,8 +19,8 @@ const IndexPage = () => {
     localAudioRef,
     remoteAudioRefs,
     handleVolumeChange,
-    joinRoom,
-    leaveRoom,
+    joinAudioChat,
+    leaveAudioChat,
     toggleMute,
     isMuted,
     audioContext,
@@ -30,6 +30,9 @@ const IndexPage = () => {
     socket,
     connectWebSocket,
     disconnectWebSocket,
+    joinMessageType: "join-room",
+    leaveMessageType: "leave-room",
+    disconnectMessageType: "disconnect-room",
   });
 
   return (
@@ -52,7 +55,7 @@ const IndexPage = () => {
         <button
           className="bg-lime-500 rounded-md shadow-lg m-2 p-2"
           onClick={async () => {
-            await joinRoom();
+            await joinAudioChat();
           }}
         >
           Join Room
@@ -60,7 +63,7 @@ const IndexPage = () => {
         <button
           className="bg-red-500 rounded-md shadow-lg m-2 p-2"
           onClick={() => {
-            leaveRoom();
+            leaveAudioChat();
           }}
         >
           Leave Room
