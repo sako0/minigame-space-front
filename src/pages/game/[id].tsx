@@ -44,30 +44,31 @@ const Game = () => {
     currentUserID: currentUserID ?? 0,
     socket,
   });
-  // const {
-  //   localAudioRef,
-  //   remoteAudioRefs,
-  //   handleVolumeChange,
-  //   joinAudioChat,
-  //   leaveAudioChat,
-  //   toggleMute,
-  //   isMuted,
-  //   audioContext,
-  // } = useAudioChat({
-  //   roomID: Number(id),
-  //   currentUserUid: currentUserID ?? 0,
-  //   socket,
-  //   connectWebSocket,
-  //   disconnectWebSocket,
-  //   joinMessageType: "join-game",
-  //   leaveMessageType: "leave-game",
-  //   disconnectMessageType: "disconnect-game",
-  // });
+  const {
+    localAudioRef,
+    remoteAudioRefs,
+    handleVolumeChange,
+    joinAudioChat,
+    leaveAudioChat,
+    toggleMute,
+    isMuted,
+    audioContext,
+  } = useAudioChat({
+    roomID: Number(id),
+    currentUserUid: currentUserID ?? 0,
+    socket,
+    connectWebSocket,
+    disconnectWebSocket,
+    joinMessageType: "join-game",
+    leaveMessageType: "leave-game",
+    disconnectMessageType: "disconnect-game",
+  });
 
   useEffect(() => {
     const currentSocket = socket.current;
     const openHandler = () => {
       joinGame();
+      joinAudioChat();
     };
     const messageHandler = (event: any) => {
       if (!event.data) return;
@@ -110,6 +111,7 @@ const Game = () => {
       console.error("WebSocket error:", error);
     };
     const closeHandler = () => {
+      leaveAudioChat();
       isWebSocketOpen.current = false;
     };
     if (currentSocket) {
@@ -133,7 +135,9 @@ const Game = () => {
     disconnectWebSocket,
     id,
     isJoined,
+    joinAudioChat,
     joinGame,
+    leaveAudioChat,
     move,
     removeHandler,
     socket,
@@ -149,7 +153,6 @@ const Game = () => {
   const onLeaveClick = () => {
     if (isWebSocketOpen.current) {
       leaveGame();
-      // leaveAudioChat();
     }
     setIsJoined(false);
   };
@@ -207,24 +210,19 @@ const Game = () => {
             </button>
           </div>
         </div>
-        {/* <div className="mt-10">
+        <div className="mt-10">
           <audio ref={localAudioRef} autoPlay playsInline muted />
-          {Array.from(remoteAudioRefs).map(([userId, { ref, volume }]) => (
-            <div key={userId}>
-              <audio ref={ref} autoPlay />
-              <input
-                type="range"
-                min="0"
-                max="1"
-                step="0.01"
-                value={volume}
-                onChange={(event) =>
-                  handleVolumeChange(userId, Number(event.target.value))
-                }
-              />
-            </div>
+          {Array.from(remoteAudioRefs).map(([streamId, remoteAudioRef]) => (
+            <RemoteAudio
+              key={streamId}
+              userId={streamId}
+              stream={remoteAudioRef.stream}
+              volume={remoteAudioRef.volume}
+              onVolumeChange={handleVolumeChange}
+              audioContext={audioContext}
+            />
           ))}
-        </div> */}
+        </div>
         {userGameLocations
           .sort((a, b) => a.userID - b.userID)
           .map((userGameLocation) => {
