@@ -194,6 +194,17 @@ const Game = () => {
         </div>
         <div className="mt-10">
           <audio ref={localAudioRef} autoPlay playsInline muted />
+          {remoteAudioRefs.size > 0 && (
+            <button
+              className="bg-blue-500 rounded-full shadow-lg m-2 p-2"
+              onClick={(e) => {
+                e.stopPropagation();
+                toggleMute();
+              }}
+            >
+              {isMuted ? "Unmute" : "Mute"}
+            </button>
+          )}
           {Array.from(remoteAudioRefs).map(([streamId, remoteAudioRef]) => (
             <RemoteAudio
               key={streamId}

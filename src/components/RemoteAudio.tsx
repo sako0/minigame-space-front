@@ -68,6 +68,7 @@ const RemoteAudio: React.FC<RemoteAudioProps> = ({
         <GreenCircle talkingLevel={talkingLevel} />
       </div>
       <input
+        onClick={(e) => e.stopPropagation()}
         id={`${userId}-volume`}
         type="range"
         min="0"
