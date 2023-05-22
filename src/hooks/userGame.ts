@@ -16,7 +16,7 @@ export type UserGameLocation = {
 export const useGame = (props: UseGameProps) => {
   const { roomID, currentUserID, socket } = props;
   const joinGame = useCallback(() => {
-    if (socket.current) {
+    if (socket.current && socket.current.readyState === WebSocket.OPEN) {
       socket.current.send(
         JSON.stringify({
           type: "join-game",
@@ -28,7 +28,7 @@ export const useGame = (props: UseGameProps) => {
   }, [roomID, currentUserID, socket]);
 
   const leaveGame = useCallback(() => {
-    if (socket.current) {
+    if (socket.current && socket.current.readyState === WebSocket.OPEN) {
       socket.current.send(
         JSON.stringify({
           type: "leave-game",
@@ -41,7 +41,9 @@ export const useGame = (props: UseGameProps) => {
 
   const move = useCallback(
     (xAxis: number, yAxis: number) => {
-      if (socket.current) {
+      console.log("move");
+      if (socket.current && socket.current.readyState === WebSocket.OPEN) {
+        console.log("move-socket");
         const clientWidth = document.documentElement.clientWidth;
         const xAxisPercentage = (xAxis / clientWidth) * 100;
         const xAxisNumber = Math.floor(xAxisPercentage);

@@ -13,14 +13,20 @@ const IndexPage = () => {
     process.env.NODE_ENV === "production"
       ? `wss://api.mini-game-space.link/ws`
       : `ws://192.168.11.6:5500/ws`;
-  const { socket, connectWebSocket, disconnectWebSocket } = useWebSocket(url);
+  const {
+    socket,
+    connectWebSocket,
+    disconnectWebSocket,
+    addHandler,
+    removeHandler,
+  } = useWebSocket(url);
 
   const {
     localAudioRef,
     remoteAudioRefs,
     handleVolumeChange,
-    joinRoom,
-    leaveRoom,
+    joinAudioChat,
+    leaveAudioChat,
     toggleMute,
     isMuted,
     audioContext,
@@ -52,7 +58,7 @@ const IndexPage = () => {
         <button
           className="bg-lime-500 rounded-md shadow-lg m-2 p-2"
           onClick={async () => {
-            await joinRoom();
+            await joinAudioChat();
           }}
         >
           Join Room
@@ -60,7 +66,7 @@ const IndexPage = () => {
         <button
           className="bg-red-500 rounded-md shadow-lg m-2 p-2"
           onClick={() => {
-            leaveRoom();
+            leaveAudioChat();
           }}
         >
           Leave Room
