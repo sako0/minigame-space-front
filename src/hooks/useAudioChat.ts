@@ -288,7 +288,7 @@ const useAudioChat = (props: UseAudioChatProps) => {
     if (socket.current && socket.current.readyState === WebSocket.OPEN) {
       socket.current.send(
         JSON.stringify({
-          type: joinMessageType,
+          type: leaveMessageType,
           fromUserID: currentUserUid,
           roomID,
         })
@@ -343,7 +343,7 @@ const useAudioChat = (props: UseAudioChatProps) => {
     currentUserUid,
     disconnectWebSocket,
     handleMessage,
-    joinMessageType,
+    leaveMessageType,
     remoteAudioRefs,
     roomID,
     socket,

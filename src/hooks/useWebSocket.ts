@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useRef } from "react";
 
 export const useWebSocket = (url: string) => {
   const socket = useRef<WebSocket | null>(null);
@@ -38,7 +38,7 @@ export const useWebSocket = (url: string) => {
     socket.current.onclose = (event) => {
       handlers.current["close"]?.forEach((handler) => handler(event));
       // Automatically reconnect if the connection is closed.
-      connectWebSocket();
+      // connectWebSocket();
     };
   };
 
