@@ -13,7 +13,13 @@ const IndexPage = () => {
     process.env.NODE_ENV === "production"
       ? `wss://api.mini-game-space.link/ws`
       : `ws://192.168.11.6:5500/ws`;
-  const { socket, connectWebSocket, disconnectWebSocket } = useWebSocket(url);
+  const {
+    socket,
+    connectWebSocket,
+    disconnectWebSocket,
+    addHandler,
+    removeHandler,
+  } = useWebSocket(url);
 
   const {
     localAudioRef,

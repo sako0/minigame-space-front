@@ -43,6 +43,7 @@ const Game = () => {
     currentUserID: currentUserID ?? 0,
     socket,
   });
+
   const {
     localAudioRef,
     remoteAudioRefs,
@@ -91,6 +92,7 @@ const Game = () => {
       });
     } else if (type === "join-game") {
       console.log("join-game", data);
+
       setUserGameLocations(incomingUserGameLocations);
     }
     if (type === "leave-game") {
@@ -108,33 +110,36 @@ const Game = () => {
   };
 
   const closeHandler = (event: any) => {
+    leaveAudioChat();
     console.log("close", event);
   };
 
   const onJoinClick = () => {
-    connectWebSocket();
-    setSocketState(socket.current);
+    if (!socketState || socketState.readyState !== WebSocket.OPEN) {
+      connectWebSocket();
+    }
 
-    if (!isHandlerAdded.current) {
-      addHandler("open", openHandler);
-      addHandler("message", messageHandler);
-      addHandler("error", errorHandler);
-      addHandler("close", closeHandler);
+    setSocketState(socket.current);
+    if (socket.current && !isHandlerAdded.current) {
+      socket.current.addEventListener("open", openHandler);
+      socket.current.addEventListener("message", messageHandler);
+      socket.current.addEventListener("error", errorHandler);
+      socket.current.addEventListener("close", closeHandler);
       isHandlerAdded.current = true;
     }
   };
 
   const onLeaveClick = () => {
     if (socketState && socketState.readyState === WebSocket.OPEN) {
-      if (isHandlerAdded.current) {
-        removeHandler("open", openHandler);
-        removeHandler("message", messageHandler);
-        removeHandler("error", errorHandler);
-        removeHandler("close", closeHandler);
+      if (socket.current && isHandlerAdded.current) {
+        socket.current.removeEventListener("open", openHandler);
+        socket.current.removeEventListener("message", messageHandler);
+        socket.current.removeEventListener("error", errorHandler);
+        socket.current.removeEventListener("close", closeHandler);
         isHandlerAdded.current = false;
       }
       leaveGame();
-      leaveAudioChat();
+      socketState.close();
     }
   };
 

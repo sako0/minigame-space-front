@@ -275,7 +275,7 @@ const useAudioChat = (props: UseAudioChatProps) => {
     [socket, currentUserUid, createPeerConnection, roomID]
   );
 
-  const leaveRoom = useCallback(() => {
+  const leaveAudioChat = useCallback(() => {
     if (socket.current && socket.current.readyState === WebSocket.OPEN) {
       socket.current.send(
         JSON.stringify({
@@ -339,7 +339,7 @@ const useAudioChat = (props: UseAudioChatProps) => {
     socket,
   ]);
 
-  const joinRoom = useCallback(async () => {
+  const joinAudioChat = useCallback(async () => {
     if (!roomID) return;
 
     if (!audioContext) {
@@ -358,6 +358,8 @@ const useAudioChat = (props: UseAudioChatProps) => {
     connectWebSocket();
     if (socket.current) {
       socket.current.addEventListener("open", () => {
+        console.log("音声通話を開始します");
+
         if (socket.current && socket.current.readyState === WebSocket.OPEN) {
           socket.current.send(
             JSON.stringify({
@@ -438,8 +440,8 @@ const useAudioChat = (props: UseAudioChatProps) => {
     localAudioRef,
     remoteAudioRefs,
     handleVolumeChange,
-    joinAudioChat: joinRoom,
-    leaveAudioChat: leaveRoom,
+    joinAudioChat,
+    leaveAudioChat,
     toggleMute,
     isMuted,
     audioContext,
