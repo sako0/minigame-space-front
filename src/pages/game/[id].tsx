@@ -30,13 +30,7 @@ const Game = () => {
     process.env.NODE_ENV === "production"
       ? `wss://api.mini-game-space.link/game`
       : `ws://localhost:5500/game`;
-  const {
-    socket,
-    connectWebSocket,
-    addHandler,
-    removeHandler,
-    disconnectWebSocket,
-  } = useWebSocket(url);
+  const { socket, connectWebSocket, disconnectWebSocket } = useWebSocket(url);
 
   const { joinGame, leaveGame, move } = useGame({
     roomID: Number(id),
