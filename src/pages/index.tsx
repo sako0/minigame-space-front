@@ -30,9 +30,6 @@ const IndexPage = () => {
     socket,
     connectWebSocket,
     disconnectWebSocket,
-    joinMessageType: "join-room",
-    leaveMessageType: "leave-room",
-    disconnectMessageType: "disconnect-room",
   });
 
   return (

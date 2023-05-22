@@ -7,9 +7,6 @@ type UseAudioChatProps = {
   socket: React.MutableRefObject<WebSocket | null>;
   connectWebSocket: () => void;
   disconnectWebSocket: () => void;
-  joinMessageType: string;
-  leaveMessageType: string;
-  disconnectMessageType: string;
 };
 
 type RemoteAudioRef = {
@@ -38,6 +35,10 @@ const nowTime = () => {
   return hour + ":" + minute + ":" + second;
 };
 
+const joinMessageType = "join-audio";
+const leaveMessageType = "leave-audio";
+const disconnectMessageType = "disconnect-audio";
+
 const useAudioChat = (props: UseAudioChatProps) => {
   const {
     roomID,
@@ -45,9 +46,6 @@ const useAudioChat = (props: UseAudioChatProps) => {
     socket,
     connectWebSocket,
     disconnectWebSocket,
-    joinMessageType,
-    leaveMessageType,
-    disconnectMessageType,
   } = props;
   const [isMuted, setIsMuted] = useState(false);
   const [remoteAudioRefs, setRemoteAudioRefs] = useState<
@@ -131,7 +129,7 @@ const useAudioChat = (props: UseAudioChatProps) => {
 
       return peerConnection;
     },
-    [connectWebSocket, currentUserUid, joinMessageType, roomID, socket]
+    [connectWebSocket, currentUserUid, roomID, socket]
   );
 
   const handleMessage = useCallback(
@@ -142,7 +140,7 @@ const useAudioChat = (props: UseAudioChatProps) => {
       const { type, fromUserID, toUserID, connectedUserIds } = data;
       const localStream = localAudioRef.current?.srcObject as MediaStream;
 
-      if (type === "client-joined") {
+      if (type === joinMessageType) {
         const existingPeerConnection =
           peerConnectionRefs.current.get(fromUserID);
         if (!existingPeerConnection) {
@@ -274,14 +272,7 @@ const useAudioChat = (props: UseAudioChatProps) => {
         });
       }
     },
-    [
-      socket,
-      currentUserUid,
-      leaveMessageType,
-      disconnectMessageType,
-      createPeerConnection,
-      roomID,
-    ]
+    [socket, currentUserUid, createPeerConnection, roomID]
   );
 
   const leaveRoom = useCallback(() => {
@@ -343,7 +334,6 @@ const useAudioChat = (props: UseAudioChatProps) => {
     currentUserUid,
     disconnectWebSocket,
     handleMessage,
-    leaveMessageType,
     remoteAudioRefs,
     roomID,
     socket,
@@ -405,7 +395,6 @@ const useAudioChat = (props: UseAudioChatProps) => {
     audioContext,
     connectWebSocket,
     socket,
-    joinMessageType,
     currentUserUid,
     handleMessage,
   ]);

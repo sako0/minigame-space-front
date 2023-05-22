@@ -28,7 +28,7 @@ export const useGame = (props: UseGameProps) => {
   }, [roomID, currentUserID, socket]);
 
   const leaveGame = useCallback(() => {
-    if (socket.current) {
+    if (socket.current && socket.current.readyState === WebSocket.OPEN) {
       socket.current.send(
         JSON.stringify({
           type: "leave-game",
