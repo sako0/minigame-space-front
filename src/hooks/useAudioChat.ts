@@ -328,7 +328,7 @@ const useAudioChat = (props: UseAudioChatProps) => {
 
     setRemoteAudioRefs(new Map());
     // WebSocket接続を閉じていく
-    // disconnectWebSocket();
+    disconnectWebSocket();
   }, [
     connectWebSocket,
     currentUserUid,

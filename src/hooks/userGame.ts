@@ -41,9 +41,7 @@ export const useGame = (props: UseGameProps) => {
 
   const move = useCallback(
     (xAxis: number, yAxis: number) => {
-      console.log("move");
       if (socket.current && socket.current.readyState === WebSocket.OPEN) {
-        console.log("move-socket");
         const clientWidth = document.documentElement.clientWidth;
         const xAxisPercentage = (xAxis / clientWidth) * 100;
         const xAxisNumber = Math.floor(xAxisPercentage);

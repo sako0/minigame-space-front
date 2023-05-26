@@ -24,8 +24,7 @@ const Game = () => {
     UserGameLocation[]
   >([]);
   const [canClick, setCanClick] = useState(true);
-  const [socketState, setSocketState] = useState<WebSocket | null>(null);
-  const isHandlerAdded = useRef(false);
+  const [isJoined, setIsJoined] = useState(false);
   const url =
     process.env.NODE_ENV === "production"
       ? `wss://api.mini-game-space.link/game`
@@ -64,7 +63,6 @@ const Game = () => {
     if (!event.data) return;
     const data: Message = JSON.parse(event.data);
     const { type, userGameLocations: incomingUserGameLocations } = data;
-    console.log("incomingUserGameLocations", incomingUserGameLocations);
 
     if (type === "move") {
       setUserGameLocations((prevLocations) => {
@@ -88,14 +86,19 @@ const Game = () => {
       console.log("join-game", data);
 
       setUserGameLocations(incomingUserGameLocations);
-    }
-    if (type === "leave-game") {
+    } else if (type === "leave-game") {
       console.log("leave-game", data);
-      setUserGameLocations(
-        incomingUserGameLocations.filter(
-          (user) => user.userID !== data.fromUserID
-        )
-      );
+      if (incomingUserGameLocations) {
+        setUserGameLocations(
+          incomingUserGameLocations.filter(
+            (user) => user.userID !== data.fromUserID
+          )
+        );
+      } else {
+        setUserGameLocations((prevLocations) =>
+          prevLocations.filter((user) => user.userID !== data.fromUserID)
+        );
+      }
     }
   };
 
@@ -104,40 +107,38 @@ const Game = () => {
   };
 
   const closeHandler = (event: any) => {
-    leaveAudioChat();
     console.log("close", event);
   };
 
   const onJoinClick = () => {
-    if (!socketState || socketState.readyState !== WebSocket.OPEN) {
-      connectWebSocket();
-    }
+    setIsJoined(true);
 
-    setSocketState(socket.current);
-    if (socket.current && !isHandlerAdded.current) {
+    connectWebSocket();
+
+    if (socket.current) {
       socket.current.addEventListener("open", openHandler);
       socket.current.addEventListener("message", messageHandler);
       socket.current.addEventListener("error", errorHandler);
       socket.current.addEventListener("close", closeHandler);
-      isHandlerAdded.current = true;
     }
   };
 
   const onLeaveClick = () => {
-    if (socketState && socketState.readyState === WebSocket.OPEN) {
-      if (socket.current && isHandlerAdded.current) {
+    setIsJoined(false);
+    leaveGame();
+    leaveAudioChat();
+    if (socket.current && socket.current.readyState === WebSocket.OPEN) {
+      if (socket.current) {
         socket.current.removeEventListener("open", openHandler);
         socket.current.removeEventListener("message", messageHandler);
         socket.current.removeEventListener("error", errorHandler);
         socket.current.removeEventListener("close", closeHandler);
-        isHandlerAdded.current = false;
       }
-      leaveGame();
-      socketState.close();
     }
+    disconnectWebSocket();
   };
 
-  if (!socketState || socketState.readyState !== WebSocket.OPEN) {
+  if (!isJoined) {
     return (
       <div className="text-center">
         <div>
@@ -160,7 +161,7 @@ const Game = () => {
     );
   }
 
-  if (socketState && socketState.readyState === WebSocket.OPEN) {
+  if (isJoined) {
     return (
       <div
         className="text-center cursor-pointer m-auto h-screen w-screen relative bg-orange-100"
