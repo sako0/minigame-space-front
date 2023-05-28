@@ -105,7 +105,6 @@ const Game = () => {
         prevLocations.filter((user) => user.userID !== data.fromUserID)
       );
     } else if (data.type === "pong") {
-      console.log("pong", data);
       setTimeout(() => {
         if (socket.current) {
           socket.current.send(
