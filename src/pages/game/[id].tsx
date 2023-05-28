@@ -185,7 +185,7 @@ const Game = () => {
   if (isJoined) {
     return (
       <div
-        className="text-center cursor-pointer m-auto h-screen w-screen relative bg-orange-100"
+        className="text-center m-auto h-screen w-screen relative bg-orange-100"
         onClick={(e) => {
           if (
             canClick &&
