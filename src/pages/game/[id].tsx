@@ -3,7 +3,7 @@ import useAudioChat from "@/hooks/useAudioChat";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import { UserGameLocation, useGame } from "@/hooks/userGame";
 import { useRouter } from "next/router";
-import { useRef, useState } from "react";
+import { useState } from "react";
 
 export type Message = {
   type: string;
@@ -103,10 +103,16 @@ const Game = () => {
   };
 
   const errorHandler = (error: any) => {
+    setIsJoined(false);
+    leaveGame();
+    leaveAudioChat();
     console.error("WebSocket error:", error);
   };
 
   const closeHandler = (event: any) => {
+    setIsJoined(false);
+    leaveGame();
+    leaveAudioChat();
     console.log("close", event);
   };
 
