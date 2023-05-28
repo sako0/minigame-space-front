@@ -105,7 +105,16 @@ const Game = () => {
         prevLocations.filter((user) => user.userID !== data.fromUserID)
       );
     } else if (data.type === "pong") {
-      setUserGameLocations(incomingUserGameLocations);
+      console.log("pong", data);
+      setTimeout(() => {
+        if (socket.current) {
+          socket.current.send(
+            JSON.stringify({
+              type: "ping",
+            })
+          );
+        }
+      }, 5000);
     }
   };
 

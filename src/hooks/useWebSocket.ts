@@ -19,18 +19,17 @@ export const useWebSocket = (url: string) => {
     }
   };
 
-  useEffect(() => {
-    // Pingメッセージの送信を開始
-    setInterval(() => {
-      if (socket.current && socket.current.readyState === WebSocket.OPEN) {
-        socket.current.send(
-          JSON.stringify({
-            type: "ping",
-          })
-        );
-      }
-    }, 5000);
-  }, []);
+  if (socket.current) {
+    socket.current.addEventListener("open", (event) => {
+      console.log("WebSocket接続確立", event);
+      if (!socket.current) return;
+      socket.current.send(
+        JSON.stringify({
+          type: "ping",
+        })
+      );
+    });
+  }
 
   return {
     socket,
