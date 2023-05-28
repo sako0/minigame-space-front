@@ -104,6 +104,8 @@ const Game = () => {
       setUserGameLocations((prevLocations) =>
         prevLocations.filter((user) => user.userID !== data.fromUserID)
       );
+    } else if (data.type === "pong") {
+      setUserGameLocations(incomingUserGameLocations);
     }
   };
 

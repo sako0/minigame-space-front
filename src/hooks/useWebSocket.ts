@@ -1,8 +1,7 @@
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 
 export const useWebSocket = (url: string) => {
   const socket = useRef<WebSocket | null>(null);
-  const handlers = useRef<{ [type: string]: ((data?: any) => void)[] }>({});
 
   const connectWebSocket = () => {
     if (socket.current && socket.current.readyState === WebSocket.OPEN) return;
@@ -19,6 +18,19 @@ export const useWebSocket = (url: string) => {
       socket.current = null;
     }
   };
+
+  useEffect(() => {
+    // Pingメッセージの送信を開始
+    setInterval(() => {
+      if (socket.current && socket.current.readyState === WebSocket.OPEN) {
+        socket.current.send(
+          JSON.stringify({
+            type: "ping",
+          })
+        );
+      }
+    }, 5000);
+  }, []);
 
   return {
     socket,
