@@ -99,6 +99,11 @@ const Game = () => {
           prevLocations.filter((user) => user.userID !== data.fromUserID)
         );
       }
+    } else if (type === "disconnect-game") {
+      console.log("disconnect-game", data);
+      setUserGameLocations((prevLocations) =>
+        prevLocations.filter((user) => user.userID !== data.fromUserID)
+      );
     }
   };
 
