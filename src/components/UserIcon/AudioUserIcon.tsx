@@ -2,7 +2,7 @@ import { useAudioLevel } from "@/hooks/useAudioLevel";
 
 type AudioUserIconProps = {
   userID: number;
-  index: number;
+  userName: string;
   xAxis: number;
   yAxis: number;
   audioContext: AudioContext | null;
@@ -10,7 +10,7 @@ type AudioUserIconProps = {
 };
 
 export const AudioUserIcon = (props: AudioUserIconProps) => {
-  const { userID, index, xAxis, yAxis, audioContext, stream } = props;
+  const { userID, userName, xAxis, yAxis, audioContext, stream } = props;
   const talkingLevel = useAudioLevel(audioContext, stream);
   const greenIntensity = Math.floor((255 / 4) * talkingLevel);
   const textColor =
@@ -19,7 +19,7 @@ export const AudioUserIcon = (props: AudioUserIconProps) => {
       : "rgba(128, 128, 128, 0.5)";
 
   const bgColor = (() => {
-    switch (index) {
+    switch (userID) {
       case 1:
         return "bg-red-400";
       case 2:
@@ -53,9 +53,9 @@ export const AudioUserIcon = (props: AudioUserIconProps) => {
           borderWidth: talkingLevel > 0 ? "4px" : "0px",
         }}
       >
-        <p>{index}</p>
+        <p>{userID}</p>
       </div>
-      <p className="text-black">{userID + " さん"}</p>
+      <p className="text-black">{userName + " さん"}</p>
     </div>
   );
 };

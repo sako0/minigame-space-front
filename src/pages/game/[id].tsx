@@ -244,14 +244,14 @@ const Game = () => {
         </div>
         {userGameLocations
           .sort((a, b) => a.userID - b.userID)
-          .map((userGameLocation, index) => {
+          .map((userGameLocation) => {
             const stream = remoteAudioRefs.get(String(userGameLocation.userID))
               ?.stream as MediaStream;
             return (
               <div key={userGameLocation.userID}>
                 <AudioUserIcon
                   userID={userGameLocation.userID}
-                  index={index + 1}
+                  userName={String(userGameLocation.userID)}
                   xAxis={userGameLocation.xAxis}
                   yAxis={userGameLocation.yAxis}
                   audioContext={audioContext}
