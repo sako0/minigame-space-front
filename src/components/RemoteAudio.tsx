@@ -63,7 +63,7 @@ const RemoteAudio: React.FC<RemoteAudioProps> = ({
   return (
     <div className="my-3">
       <audio ref={audioRef} playsInline autoPlay />
-      <div className="flex items-center justify-center mx-auto">
+      {/* <div className="flex items-center justify-center mx-auto">
         <p className={"text-sm text-black"}>{userId}</p>
         <GreenCircle talkingLevel={talkingLevel} />
       </div>
@@ -76,7 +76,7 @@ const RemoteAudio: React.FC<RemoteAudioProps> = ({
         step="0.01"
         value={volume}
         onChange={handleVolumeChange}
-      />
+      /> */}
     </div>
   );
 };

@@ -1,4 +1,5 @@
 import RemoteAudio from "@/components/RemoteAudio";
+import { AudioUserIcon } from "@/components/UserIcon/AudioUserIcon";
 import useAudioChat from "@/hooks/useAudioChat";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import { UserGameLocation, useGame } from "@/hooks/userGame";
@@ -145,6 +146,9 @@ const Game = () => {
   };
 
   const onLeaveClick = () => {
+    if (isMuted) {
+      toggleMute();
+    }
     setIsJoined(false);
     leaveGame();
     leaveAudioChat();
@@ -218,7 +222,7 @@ const Game = () => {
           <audio ref={localAudioRef} autoPlay playsInline muted />
           {remoteAudioRefs.size > 0 && (
             <button
-              className="bg-blue-500 rounded-full shadow-lg m-2 p-2"
+              className="bg-blue-500 w-24 rounded-full shadow-lg m-2 p-2 absolute bottom-10 right-0 left-0 mx-auto"
               onClick={(e) => {
                 e.stopPropagation();
                 toggleMute();
@@ -240,18 +244,19 @@ const Game = () => {
         </div>
         {userGameLocations
           .sort((a, b) => a.userID - b.userID)
-          .map((userGameLocation) => {
+          .map((userGameLocation, index) => {
+            const stream = remoteAudioRefs.get(String(userGameLocation.userID))
+              ?.stream as MediaStream;
             return (
-              <div
-                key={userGameLocation.userID}
-                className="absolute flex justify-center items-center w-10 h-10 rounded-full border bg-blue-400 transition-all duration-500 ease-linear"
-                style={{
-                  left: `calc(${userGameLocation.xAxis}% - 16px)`,
-                  top: `calc(${userGameLocation.yAxis}% - 16px)`,
-                  transition: "top 0.5s, left 0.5s",
-                }}
-              >
-                <p>{userGameLocation.userID}</p>
+              <div key={userGameLocation.userID}>
+                <AudioUserIcon
+                  userID={userGameLocation.userID}
+                  index={index + 1}
+                  xAxis={userGameLocation.xAxis}
+                  yAxis={userGameLocation.yAxis}
+                  audioContext={audioContext}
+                  stream={stream}
+                />
               </div>
             );
           })}
